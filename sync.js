@@ -1,0 +1,442 @@
+/* ============================================================================
+   StudyOS 2027 — Firebase Real-Time Sync (Firestore + Google Auth) & Mobile Shell
+============================================================================ */
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  signOut,
+  onAuthStateChanged
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  onSnapshot
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+// ================== DÁN FIREBASE CONFIG CỦA BẠN VÀO ĐÂY ==================
+const firebaseConfig = {
+  apiKey: "DAN_API_KEY_CUA_BAN_VAO_DAY",
+  authDomain: "DAN_AUTH_DOMAIN_VAO_DAY",
+  projectId: "DAN_PROJECT_ID_VAO_DAY",
+  storageBucket: "DAN_STORAGE_BUCKET_VAO_DAY",
+  messagingSenderId: "DAN_SENDER_ID_VAO_DAY",
+  appId: "DAN_APP_ID_VAO_DAY"
+};
+// =========================================================================
+
+const CLIENT_ID = 'dev_' + Math.random().toString(36).slice(2, 10);
+const MAX_DOC_BYTES = 850 * 1024; // Giới hạn an toàn dưới mức 1MB của Firestore
+
+let auth = null;
+let db = null;
+let currentUser = null;
+let unsubscribers = [];
+let pushTimer = null;
+let isApplyingRemote = false;
+
+const isConfigured =
+  firebaseConfig.apiKey &&
+  !firebaseConfig.apiKey.includes('DAN_API_KEY');
+
+if (isConfigured) {
+  const app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+}
+
+// ================= UI ĐỒNG BỘ TRÊN SIDEBAR =================
+function injectSyncPanel() {
+  const footer = document.querySelector('.sidebar-footer');
+  if (!footer || document.getElementById('cloud-sync-box')) return;
+
+  const box = document.createElement('div');
+  box.id = 'cloud-sync-box';
+  box.className = 'cloud-sync-box';
+  box.innerHTML = `
+    <div class="cloud-sync-head">
+      <span class="footer-label" style="margin:0;">Đồng bộ đám mây</span>
+      <span class="sync-status-dot" id="sync-status-text">Chưa đăng nhập</span>
+    </div>
+    <div id="sync-logged-out">
+      <button type="button" class="btn-primary full-btn btn-sm" id="btn-google-signin">
+        Đăng nhập Google để đồng bộ
+      </button>
+    </div>
+    <div id="sync-logged-in" class="hidden">
+      <div class="sync-user-row">
+        <img id="sync-user-avatar" class="sync-avatar" alt="" />
+        <div class="sync-user-info">
+          <div id="sync-user-name" class="sync-user-name"></div>
+          <div id="sync-user-email" class="sync-user-email"></div>
+        </div>
+      </div>
+      <div class="backup-actions" style="margin-top:6px;">
+        <button type="button" class="btn-ghost btn-sm" id="btn-sync-now">↻ Đồng bộ</button>
+        <button type="button" class="btn-ghost btn-sm" id="btn-google-signout">Đăng xuất</button>
+      </div>
+    </div>`;
+
+  footer.insertBefore(box, footer.firstChild);
+
+  document.getElementById('btn-google-signin').addEventListener('click', handleSignIn);
+  document.getElementById('btn-google-signout').addEventListener('click', handleSignOut);
+  document.getElementById('btn-sync-now').addEventListener('click', () => {
+    if (!currentUser) return;
+    pushAllToCloud(true);
+  });
+}
+
+function setSyncStatus(text, type = 'muted') {
+  const el = document.getElementById('sync-status-text');
+  if (!el) return;
+  el.textContent = text;
+  el.className = `sync-status-dot ${type}`;
+}
+
+async function handleSignIn() {
+  if (!isConfigured || !auth) {
+    showToast('Bạn chưa dán firebaseConfig vào đầu file sync.js!');
+    return;
+  }
+  const provider = new GoogleAuthProvider();
+  try {
+    setSyncStatus('Đang đăng nhập...', 'syncing');
+    await signInWithPopup(auth, provider);
+  } catch (err) {
+    // Trên một số trình duyệt điện thoại popup bị chặn -> tự chuyển sang redirect
+    if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user') {
+      try {
+        await signInWithRedirect(auth, provider);
+      } catch {
+        setSyncStatus('Lỗi đăng nhập', 'error');
+        showToast('Không thể đăng nhập Google. Kiểm tra lại Authorized domains trên Firebase.');
+      }
+    } else {
+      setSyncStatus('Lỗi đăng nhập', 'error');
+      showToast(`Lỗi đăng nhập: ${err.code || err.message}`);
+    }
+  }
+}
+
+async function handleSignOut() {
+  if (!auth) return;
+  const ok = await askConfirm({
+    title: 'Đăng xuất tài khoản Google?',
+    message: 'Dữ liệu hiện tại vẫn được giữ trên máy này nhưng sẽ tạm ngừng đồng bộ cho đến khi bạn đăng nhập lại.',
+    confirmText: 'Đăng xuất'
+  });
+  if (!ok) return;
+  stopCloudListeners();
+  await signOut(auth);
+  showToast('Đã đăng xuất.');
+}
+
+// ================= CHIA GÓI DỮ LIỆU & ĐỒNG BỘ 2 CHIỀU =================
+function getUserDocRef(section) {
+  return doc(db, 'users', currentUser.uid, 'studyos', section);
+}
+
+function buildCalendarPayload() {
+  let tasksCopy = state.tasks || [];
+  let payload = {
+    settings: state.settings || {},
+    fixedTkb: state.fixedTkb || [],
+    schoolSchedule: state.schoolSchedule || {},
+    schoolDayTasks: state.schoolDayTasks || {},
+    tasks: tasksCopy,
+    goals: state.goals || {},
+    updatedAt: Date.now(),
+    clientId: CLIENT_ID
+  };
+
+  // Nếu file đính kèm base64 quá lớn (>850KB), chỉ giữ tên file trên mây để không vượt giới hạn 1MB của Firestore
+  if (new Blob([JSON.stringify(payload)]).size > MAX_DOC_BYTES) {
+    payload.tasks = tasksCopy.map(t => ({
+      ...t,
+      attachments: (t.attachments || []).map(a =>
+        (a.dataUrl && a.dataUrl.length > 150000) ? { ...a, dataUrl: '' } : a
+      )
+    }));
+  }
+  return payload;
+}
+
+function buildExamsPayload() {
+  return {
+    examCategories: state.examCategories || [],
+    exams: state.exams || [],
+    updatedAt: Date.now(),
+    clientId: CLIENT_ID
+  };
+}
+
+function buildPomoPayload() {
+  return {
+    pomodoro: state.pomodoro || null,
+    updatedAt: Date.now(),
+    clientId: CLIENT_ID
+  };
+}
+
+async function pushAllToCloud(showDoneToast = false) {
+  if (!currentUser || !db || isApplyingRemote) return;
+  try {
+    setSyncStatus('↻ Đang đồng bộ...', 'syncing');
+    await Promise.all([
+      setDoc(getUserDocRef('calendar'), buildCalendarPayload()),
+      setDoc(getUserDocRef('exams'), buildExamsPayload()),
+      setDoc(getUserDocRef('pomodoro'), buildPomoPayload())
+    ]);
+    setSyncStatus('● Đã đồng bộ', 'ok');
+    if (showDoneToast) showToast('Đã đồng bộ dữ liệu lên đám mây!');
+  } catch (err) {
+    console.error('Firestore push error:', err);
+    setSyncStatus('Lỗi đồng bộ', 'error');
+    showToast('Lỗi đồng bộ lên Firebase. Kiểm tra kết nối mạng hoặc Firestore Rules.');
+  }
+}
+
+function scheduleCloudPush() {
+  if (!currentUser || !db || isApplyingRemote) return;
+  clearTimeout(pushTimer);
+  setSyncStatus('↻ Chờ lưu...', 'syncing');
+  pushTimer = setTimeout(() => pushAllToCloud(false), 700);
+}
+
+function refreshAllViewsAfterRemote() {
+  try {
+    if (typeof refreshCategorySelects === 'function') refreshCategorySelects();
+    if (typeof renderCountdowns === 'function') renderCountdowns();
+    if (typeof renderCalendar === 'function') renderCalendar();
+    if (typeof renderExamsTable === 'function') renderExamsTable();
+    if (typeof renderMistakes === 'function') renderMistakes();
+    if (typeof renderAnalytics === 'function') renderAnalytics();
+    window.dispatchEvent(new CustomEvent('studyos:synced'));
+  } catch (e) {
+    console.error('Refresh UI error:', e);
+  }
+}
+
+function stopCloudListeners() {
+  unsubscribers.forEach(fn => { try { fn(); } catch {} });
+  unsubscribers = [];
+}
+
+async function startCloudSync() {
+  stopCloudListeners();
+  setSyncStatus('↻ Đang kết nối...', 'syncing');
+
+  try {
+    // Kiểm tra xem trên mây đã có dữ liệu chưa
+    const [calSnap, examSnap, pomoSnap] = await Promise.all([
+      getDoc(getUserDocRef('calendar')),
+      getDoc(getUserDocRef('exams')),
+      getDoc(getUserDocRef('pomodoro'))
+    ]);
+
+    const hasCloudData = calSnap.exists() || examSnap.exists() || pomoSnap.exists();
+
+    if (!hasCloudData) {
+      // Lần đầu tiên đăng nhập -> đẩy toàn bộ dữ liệu đang có trên máy lên mây
+      await pushAllToCloud(false);
+      showToast('Đã đồng bộ toàn bộ dữ liệu hiện có của bạn lên đám mây!');
+    } else {
+      // Đã có dữ liệu trên mây -> tải về máy hiện tại
+      isApplyingRemote = true;
+      if (calSnap.exists()) applyRemoteCalendar(calSnap.data());
+      if (examSnap.exists()) applyRemoteExams(examSnap.data());
+      if (pomoSnap.exists()) applyRemotePomo(pomoSnap.data());
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      isApplyingRemote = false;
+      refreshAllViewsAfterRemote();
+    }
+
+    // Lắng nghe thay đổi real-time từ thiết bị khác
+    unsubscribers.push(
+      onSnapshot(getUserDocRef('calendar'), (snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+        if (data.clientId === CLIENT_ID) return;
+        isApplyingRemote = true;
+        applyRemoteCalendar(data);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        isApplyingRemote = false;
+        refreshAllViewsAfterRemote();
+        setSyncStatus('● Đã đồng bộ', 'ok');
+      }),
+      onSnapshot(getUserDocRef('exams'), (snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+        if (data.clientId === CLIENT_ID) return;
+        isApplyingRemote = true;
+        applyRemoteExams(data);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        isApplyingRemote = false;
+        refreshAllViewsAfterRemote();
+        setSyncStatus('● Đã đồng bộ', 'ok');
+      }),
+      onSnapshot(getUserDocRef('pomodoro'), (snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+        if (data.clientId === CLIENT_ID) return;
+        isApplyingRemote = true;
+        applyRemotePomo(data);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        isApplyingRemote = false;
+        refreshAllViewsAfterRemote();
+        setSyncStatus('● Đã đồng bộ', 'ok');
+      })
+    );
+
+    setSyncStatus('● Đã đồng bộ', 'ok');
+  } catch (err) {
+    console.error('Start sync error:', err);
+    setSyncStatus('Lỗi kết nối', 'error');
+  }
+}
+
+function applyRemoteCalendar(data) {
+  if (data.settings) state.settings = { ...state.settings, ...data.settings };
+  if (Array.isArray(data.fixedTkb)) state.fixedTkb = data.fixedTkb;
+  if (data.schoolSchedule) state.schoolSchedule = data.schoolSchedule;
+  if (data.schoolDayTasks) state.schoolDayTasks = data.schoolDayTasks;
+  if (Array.isArray(data.tasks)) state.tasks = data.tasks;
+  if (data.goals) state.goals = data.goals;
+}
+
+function applyRemoteExams(data) {
+  if (Array.isArray(data.examCategories) && data.examCategories.length) {
+    state.examCategories = data.examCategories;
+  }
+  if (Array.isArray(data.exams)) state.exams = data.exams;
+}
+
+function applyRemotePomo(data) {
+  if (data.pomodoro) state.pomodoro = data.pomodoro;
+}
+
+// Hook tự động vào saveState() gốc để mọi thay đổi đều tự đẩy lên mây
+function hookSaveState() {
+  const originalSave = window.saveState;
+  if (typeof originalSave !== 'function') return;
+  window.saveState = function () {
+    originalSave();
+    if (!isApplyingRemote) scheduleCloudPush();
+  };
+}
+
+// ================= GIAO DIỆN ĐIỀU HƯỚNG MOBILE (DRAWER + BOTTOM BAR) =================
+function initMobileNavigation() {
+  if (document.getElementById('mobile-bottom-nav')) return;
+
+  // Backdrop đóng sidebar trên mobile
+  const backdrop = document.createElement('div');
+  backdrop.id = 'mobile-sidebar-backdrop';
+  backdrop.className = 'mobile-sidebar-backdrop';
+  backdrop.addEventListener('click', () => {
+    document.body.classList.remove('mobile-menu-open');
+  });
+  document.body.appendChild(backdrop);
+
+  // Nút mở nhanh Sidebar trên góc trái các trang thường
+  const menuBtn = document.createElement('button');
+  menuBtn.id = 'mobile-menu-fab';
+  menuBtn.className = 'mobile-menu-fab';
+  menuBtn.title = 'Mở menu & Đồng bộ';
+  menuBtn.innerHTML = '☰';
+  menuBtn.addEventListener('click', () => {
+    document.body.classList.toggle('mobile-menu-open');
+  });
+  document.body.appendChild(menuBtn);
+
+  // Thanh điều hướng 5 tab ở đáy màn hình điện thoại
+  const bottomNav = document.createElement('nav');
+  bottomNav.id = 'mobile-bottom-nav';
+  bottomNav.className = 'mobile-bottom-nav';
+  bottomNav.innerHTML = `
+    <button type="button" class="mbn-item active" data-mb-tab="calendar"><span>◫</span><small>Lịch</small></button>
+    <button type="button" class="mbn-item" data-mb-tab="exams"><span>▤</span><small>Luyện đề</small></button>
+    <button type="button" class="mbn-item" data-mb-tab="pomodoro"><span>◎</span><small>Focus</small></button>
+    <button type="button" class="mbn-item" data-mb-tab="mistakes"><span>◈</span><small>Lỗi sai</small></button>
+    <button type="button" class="mbn-item" data-mb-tab="analytics"><span>◬</span><small>Biểu đồ</small></button>
+  `;
+  document.body.appendChild(bottomNav);
+
+  const syncBottomActive = (tabName) => {
+    bottomNav.querySelectorAll('.mbn-item').forEach(b => {
+      b.classList.toggle('active', b.dataset.mbTab === tabName);
+    });
+    menuBtn.classList.toggle('hidden', tabName === 'pomodoro');
+  };
+
+  bottomNav.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-mb-tab]');
+    if (!btn) return;
+    document.body.classList.remove('mobile-menu-open');
+    if (typeof switchTab === 'function') switchTab(btn.dataset.mbTab);
+    syncBottomActive(btn.dataset.mbTab);
+  });
+
+  // Đồng bộ khi bấm nút trên sidebar hoặc nút ☰ trong Pomodoro
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.body.classList.remove('mobile-menu-open');
+      syncBottomActive(btn.dataset.tab);
+    });
+  });
+
+  document.addEventListener('click', (e) => {
+    if (window.innerWidth <= 960 && e.target.closest('#btn-pomo-toggle-sidebar')) {
+      document.body.classList.toggle('mobile-menu-open');
+    }
+  });
+}
+
+// ================= KHỞI CHẠY =================
+function initSyncModule() {
+  injectSyncPanel();
+  hookSaveState();
+  initMobileNavigation();
+
+  if (!isConfigured || !auth) {
+    setSyncStatus('Chưa cấu hình', 'muted');
+    return;
+  }
+
+  getRedirectResult(auth).catch(() => {});
+
+  onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+    const outBox = document.getElementById('sync-logged-out');
+    const inBox = document.getElementById('sync-logged-in');
+
+    if (user) {
+      outBox?.classList.add('hidden');
+      inBox?.classList.remove('hidden');
+      const av = document.getElementById('sync-user-avatar');
+      if (av) av.src = user.photoURL || '';
+      const nm = document.getElementById('sync-user-name');
+      if (nm) nm.textContent = user.displayName || 'Tài khoản Google';
+      const em = document.getElementById('sync-user-email');
+      if (em) em.textContent = user.email || '';
+      startCloudSync();
+    } else {
+      stopCloudListeners();
+      outBox?.classList.remove('hidden');
+      inBox?.classList.add('hidden');
+      setSyncStatus('Chưa đăng nhập', 'muted');
+    }
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initSyncModule);
+} else {
+  initSyncModule();
+}

@@ -1,0 +1,16 @@
+{
+  "name": "StudyOS 2027 — Lịch Học & Luyện Đề",
+  "short_name": "StudyOS 2027",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#111216",
+  "theme_color": "#111216",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='42' fill='%2316171d'/%3E%3Ccircle cx='96' cy='96' r='56' fill='none' stroke='%239f85f7' stroke-width='14'/%3E%3Ccircle cx='96' cy='96' r='16' fill='%239f85f7'/%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+}
