@@ -56,37 +56,44 @@
   white-space: nowrap;
 }
 
-/* ===================== MOBILE NAVIGATION (HIDDEN ON DESKTOP) ===================== */
-.mobile-bottom-nav,
+/* ===================== MOBILE CONTROLS (HIDDEN ON DESKTOP) ===================== */
 .mobile-menu-fab,
 .mobile-sidebar-backdrop {
   display: none;
 }
 
+/* ===================== MOBILE OPTIMIZATION (OPPO RENO11 5G — 360px+) ===================== */
 @media (max-width: 960px) {
+  html, body {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
   .app-shell {
     display: flex;
     flex-direction: column;
     height: 100dvh;
+    width: 100vw;
     overflow: hidden;
   }
 
-  /* Sidebar biến thành ngăn kéo trượt từ cạnh trái */
+  /* Sidebar trượt mượt từ cạnh trái */
   .sidebar {
     position: fixed !important;
     top: 0;
     left: 0;
     bottom: 0;
-    width: 280px !important;
+    width: 276px !important;
     max-width: 84vw;
     z-index: 320;
-    padding: 18px 14px !important;
+    padding: 16px 12px !important;
     opacity: 1 !important;
     pointer-events: auto !important;
     border-right: 1px solid var(--border-light) !important;
     transform: translateX(-105%);
-    transition: transform 0.26s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    box-shadow: 12px 0 40px rgba(0, 0, 0, 0.7);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 12px 0 40px rgba(0, 0, 0, 0.72);
+    overflow-y: auto;
   }
 
   body.mobile-menu-open .sidebar {
@@ -109,84 +116,564 @@
     pointer-events: auto;
   }
 
-  /* Nút mở menu trên góc trái */
+  /* Nút ☰ duy nhất ở góc trên bên trái */
   .mobile-menu-fab {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     position: fixed;
-    top: 12px;
-    left: 12px;
-    z-index: 90;
-    width: 38px;
-    height: 38px;
+    top: 10px;
+    left: 10px;
+    z-index: 95;
+    width: 36px;
+    height: 36px;
     border-radius: 10px;
     border: 1px solid var(--border-light);
-    background: rgba(22, 23, 29, 0.9);
+    background: rgba(22, 23, 29, 0.92);
     backdrop-filter: blur(10px);
     color: var(--text-main);
-    font-size: 18px;
+    font-size: 17px;
     cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
   }
 
   .main-content {
     flex: 1;
     min-height: 0;
-    padding-bottom: 62px; /* Chừa chỗ cho thanh điều hướng đáy */
+    width: 100%;
+    padding-bottom: 0;
+    overflow: hidden;
   }
 
   .view {
-    padding: 14px 12px 18px;
+    padding: 10px 10px 14px;
+    width: 100%;
+    max-width: 100vw;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
+
+  /* Nút & ô nhập liệu gọn vừa tay trên màn 360px */
+  .btn-primary,
+  .btn-ghost {
+    padding: 6px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .btn-sm {
+    padding: 5px 9px;
+    font-size: 11.5px;
+  }
+
+  /* Tiêu đề & thanh công cụ mỗi tab không bao giờ bị tràn ngang */
   .view-header {
-    padding-left: 44px; /* Tránh đè nút ☰ */
-    gap: 8px;
-  }
-  .view-header h1 { font-size: 17px; }
-  .input-search { width: 100%; }
-
-  /* Thanh điều hướng 5 tab ở đáy màn hình */
-  .mobile-bottom-nav {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 60px;
-    z-index: 95;
-    background: rgba(18, 19, 25, 0.96);
-    backdrop-filter: blur(16px);
-    border-top: 1px solid var(--border);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-
-  .mbn-item {
-    border: none;
-    background: transparent;
-    color: var(--text-muted);
-    font-family: inherit;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    cursor: pointer;
+    align-items: stretch;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-left: 0;
   }
-  .mbn-item span { font-size: 17px; line-height: 1; }
-  .mbn-item small { font-size: 10.5px; font-weight: 500; }
-  .mbn-item.active { color: var(--accent-hover); }
+  .view-header .header-left {
+    padding-left: 44px; /* Chừa chỗ cho nút ☰ */
+    min-height: 36px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+  .view-header h1 {
+    font-size: 16px;
+    line-height: 1.25;
+  }
+  .view-header .header-right {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+  }
+  .view-header .switch-label {
+    font-size: 11.5px;
+    gap: 5px;
+  }
+  .week-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .week-label {
+    font-size: 11.5px;
+    white-space: nowrap;
+  }
 
-  /* Tinh chỉnh Pomodoro trên điện thoại */
-  #view-pomodoro { padding: 0; }
-  .pomo-topbar { top: 12px; left: 12px; }
-  .pomo-stage { padding: 54px 12px 16px; }
-  .pomo-ring-box { width: 250px; height: 250px; }
-  .pomo-clock { font-size: 48px; }
-  .pomo-clock.long-fmt { font-size: 34px; }
-  .pomo-dock { gap: 6px; padding: 6px 10px; }
-  .pomo-dock-btn { padding: 0 9px; font-size: 12px; }
-  .pomo-start-btn { min-width: 108px; height: 40px; font-size: 13.5px; }
+  .input-search,
+  .select-control {
+    min-width: 0;
+    max-width: 100%;
+    font-size: 12.5px;
+    padding: 6px 9px;
+  }
+  #view-exams .header-right .input-search {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  #view-exams .header-right #exam-filter-category {
+    flex: 1 1 140px;
+    max-width: none !important;
+  }
 
-  .form-row-2, .form-row-3 { grid-template-columns: 1fr; }
+  /* Filter pills gọn gàng */
+  .filter-bar {
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .filter-pill {
+    padding: 5px 10px;
+    font-size: 11.5px;
+  }
+
+  /* ===================== 1. ĐỒNG BỘ CUỘN NGANG LỊCH TUẦN ===================== */
+  .calendar-card,
+  #view-calendar .calendar-container {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  /* Khóa đúng bề rộng cột trái 48px cho cả 3 tầng: Ngày, Mục tiêu, Lưới giờ */
+  *:has(> #cal-days-header),
+  *:has(> #cal-goals-row) {
+    display: flex !important;
+    align-items: stretch;
+    overflow: hidden !important;
+    width: 100%;
+  }
+
+  *:has(> #cal-days-header) > :first-child,
+  *:has(> #cal-goals-row) > :first-child {
+    width: 48px !important;
+    min-width: 48px !important;
+    max-width: 48px !important;
+    flex-shrink: 0 !important;
+    font-size: 9px !important;
+    padding: 4px 2px !important;
+    box-sizing: border-box;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  #cal-days-header,
+  #cal-goals-row {
+    flex: 1 !important;
+    min-width: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none;
+    display: grid !important;
+    grid-template-columns: repeat(7, 112px) !important;
+  }
+  #cal-days-header::-webkit-scrollbar,
+  #cal-goals-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  #cal-grid-scroll {
+    overflow: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #cal-time-labels {
+    position: sticky !important;
+    left: 0;
+    z-index: 14;
+    width: 48px !important;
+    min-width: 48px !important;
+    max-width: 48px !important;
+    flex-shrink: 0 !important;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+  }
+  #cal-time-labels .time-label {
+    font-size: 9.5px;
+    padding-right: 4px;
+  }
+
+  #cal-columns-container {
+    display: grid !important;
+    grid-template-columns: repeat(7, 112px) !important;
+    width: 784px !important;
+    min-width: 784px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .cal-goal-cell {
+    padding: 4px 5px;
+    min-width: 0;
+  }
+  .goal-input {
+    font-size: 11px !important;
+  }
+
+  /* ===================== 2. BẢNG LUYỆN ĐỀ, LỖI SAI & BIỂU ĐỒ ===================== */
+  #view-exams .data-table th,
+  #view-exams .data-table td {
+    padding: 8px 9px;
+    font-size: 12px;
+  }
+
+  .mistakes-filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+  }
+  .mistakes-filters .input-search {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  .mistakes-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+
+  .kpi-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .kpi-card {
+    padding: 11px 12px;
+  }
+  .kpi-value {
+    font-size: 18px;
+  }
+  .kpi-value.small-val {
+    font-size: 13.5px;
+  }
+  .charts-layout,
+  .analytics-trend-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+  .chart-card {
+    padding: 12px;
+  }
+  .analytics-top-bar,
+  .analytics-err-toolbar {
+    gap: 8px;
+  }
+  .analytics-err-filters {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .analytics-mode-btn {
+    padding: 5px 9px;
+    font-size: 11px;
+  }
+
+  /* ===================== 3. POMODORO & THI THẬT TRÊN ĐIỆN THOẠI ===================== */
+  #view-pomodoro {
+    padding: 0;
+  }
+  .pomo-layout {
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+  .pomo-topbar {
+    top: 10px;
+    left: 10px;
+    gap: 8px;
+  }
+  .pomo-brand-label {
+    font-size: 14px;
+  }
+
+  /* Đưa 4 nút bên trái Pomodoro thành thanh ngang gọn ở góc trên bên phải */
+  .pomo-left-rail {
+    display: flex !important;
+    flex-direction: row !important;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    left: auto;
+    transform: none;
+    padding: 4px 6px;
+    gap: 4px;
+    border-radius: 12px;
+    z-index: 25;
+  }
+  .pomo-rail-btn {
+    width: 32px;
+    min-height: 32px;
+    padding: 2px;
+  }
+  .pomo-rail-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+  .pomo-rail-divider {
+    width: 1px;
+    height: 18px;
+    margin: 0 2px;
+  }
+
+  .pomo-stage {
+    padding: 56px 10px 14px;
+    gap: 8px;
+    overflow-y: auto;
+  }
+  .pomo-appmode-btn {
+    font-size: 11.5px;
+    padding: 5px 11px;
+  }
+  .pomo-mode-tabs {
+    gap: 10px;
+  }
+  .pomo-mode-btn {
+    font-size: 12.5px;
+    padding: 4px 2px;
+  }
+  .pomo-exam-meta-bar {
+    width: 100%;
+    padding: 7px 9px;
+    gap: 7px;
+  }
+  .pomo-exam-name-input {
+    width: 100% !important;
+    font-size: 12px !important;
+  }
+  .pomo-exam-alerts {
+    font-size: 11.5px;
+    gap: 10px;
+  }
+
+  .pomo-ring-box {
+    width: 236px;
+    height: 236px;
+  }
+  .pomo-clock {
+    font-size: 46px;
+  }
+  .pomo-clock.long-fmt {
+    font-size: 32px;
+  }
+  .pomo-session-pill {
+    font-size: 11.5px;
+    padding: 4px 10px;
+    max-width: 195px;
+  }
+  .pomo-quote {
+    font-size: 13px;
+    max-width: 92%;
+  }
+
+  /* Thanh dock dưới cùng vừa khít 360px không bị tràn */
+  .pomo-dock {
+    width: 100%;
+    max-width: 340px;
+    justify-content: space-between;
+    gap: 4px;
+    padding: 6px 8px;
+    border-radius: 16px;
+    box-sizing: border-box;
+  }
+  .pomo-dock-btn {
+    height: 36px;
+    padding: 0 7px;
+    font-size: 11.5px;
+    gap: 4px;
+    border-radius: 10px;
+  }
+  .pomo-dock-btn.icon-only {
+    width: 34px;
+    padding: 0;
+  }
+  .pomo-start-btn {
+    min-width: 88px;
+    height: 38px;
+    font-size: 13px;
+    border-radius: 11px;
+    padding: 0 12px;
+  }
+
+  /* Bảng Tasks Pomodoro mở dạng lớp phủ gọn đẹp trên mobile */
+  .pomo-tasks-panel {
+    position: fixed;
+    top: 54px;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    width: auto !important;
+    margin: 0 !important;
+    z-index: 120;
+    min-height: 0 !important;
+  }
+  .pomo-tasks-panel.collapsed {
+    display: none;
+  }
+
+  /* Drawer Settings / Aesthetics / Streak / Challenge vừa khít 360px */
+  .pomo-left-drawer,
+  .pomo-left-drawer.pomo-streak-drawer {
+    top: 10px;
+    bottom: 10px;
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    max-width: calc(100vw - 20px) !important;
+    padding: 14px;
+    border-radius: 16px;
+  }
+  .pomo-challenge-pop {
+    left: 10px !important;
+    right: 10px !important;
+    top: 56px !important;
+    min-width: 0 !important;
+    width: auto !important;
+  }
+  .pomo-challenge-card {
+    padding: 18px 16px;
+  }
+  .pomo-ch-heading {
+    font-size: 18px;
+  }
+  .pomo-cal-grid {
+    gap: 4px;
+  }
+  .pomo-day-cell {
+    min-height: 48px;
+    padding: 4px;
+    border-radius: 8px;
+  }
+  .pdc-val {
+    font-size: 11px;
+  }
+  .pomo-streak-stats-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .pomo-streak-stats-row > :last-child {
+    grid-column: 1 / -1;
+  }
+
+  /* ===================== 4. SỬA TOÀN BỘ MODAL (KHÔNG TRÀN NGANG) ===================== */
+  .modal-backdrop {
+    padding: 8px;
+  }
+
+  .modal-box,
+  .modal-box.modal-task-wide,
+  .modal-box.modal-lg,
+  .modal-box.modal-xl,
+  .modal-box.modal-confirm-box {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92dvh;
+    border-radius: 14px;
+    box-sizing: border-box;
+  }
+
+  .modal-header {
+    padding: 12px 14px;
+  }
+  .modal-header h2 {
+    font-size: 15px;
+    line-height: 1.3;
+  }
+
+  .modal-body {
+    padding: 12px 14px;
+    gap: 11px;
+    overflow-x: hidden;
+    box-sizing: border-box;
+  }
+
+  .modal-body *,
+  .tkb-add-box,
+  .tkb-add-box * {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* Ép mọi hàng nhiều cột trong Modal xuống 1 cột gọn gàng */
+  .form-row-2,
+  .form-row-3,
+  .exam-top-grid,
+  #form-tkb .form-row-2,
+  #form-tkb .form-row-3 {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+
+  /* Riêng khung TKB cố định: gọn đẹp, nút "+ Thêm vào TKB" rộng 100% */
+  .tkb-add-box {
+    padding: 12px;
+    gap: 10px;
+    width: 100%;
+  }
+  #form-tkb button[type="submit"] {
+    width: 100% !important;
+    min-height: 38px;
+    margin-top: 2px;
+  }
+  .day-checkboxes {
+    gap: 8px 12px;
+    font-size: 12.5px;
+  }
+  .tkb-row {
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .tkb-row > div {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 12.5px;
+  }
+
+  /* Modal chi tiết tiết học & bài thi */
+  .school-task-add-row {
+    flex-wrap: wrap;
+  }
+  .school-task-add-row input {
+    flex: 1 1 160px;
+  }
+  .part-card-header {
+    padding: 10px 11px;
+  }
+  .part-controls {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .wrong-note-input {
+    min-width: 0 !important;
+    width: 100%;
+  }
+  .score-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 10px 12px;
+  }
+  .pending-exam-bar {
+    padding: 10px 11px;
+    gap: 8px;
+  }
+  .modal-footer {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .modal-footer-right {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
 }

@@ -19,7 +19,7 @@ import {
   onSnapshot
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
-// ================== DÁN FIREBASE CONFIG CỦA BẠN VÀO ĐÂY ==================
+// ================== FIREBASE CONFIG ==================
 const firebaseConfig = {
   apiKey: "AIzaSyADd6iS8ls9aV4BxUnBVsZKHKUKK2u-G6U",
   authDomain: "studyos-2027-9e79b.firebaseapp.com",
@@ -28,10 +28,10 @@ const firebaseConfig = {
   messagingSenderId: "811390083997",
   appId: "1:811390083997:web:1edaa570c98171a8788574"
 };
-// =========================================================================
+// =====================================================
 
 const CLIENT_ID = 'dev_' + Math.random().toString(36).slice(2, 10);
-const MAX_DOC_BYTES = 850 * 1024; // Giới hạn an toàn dưới mức 1MB của Firestore
+const MAX_DOC_BYTES = 850 * 1024;
 
 let auth = null;
 let db = null;
@@ -109,7 +109,6 @@ async function handleSignIn() {
     setSyncStatus('Đang đăng nhập...', 'syncing');
     await signInWithPopup(auth, provider);
   } catch (err) {
-    // Trên một số trình duyệt điện thoại popup bị chặn -> tự chuyển sang redirect
     if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user') {
       try {
         await signInWithRedirect(auth, provider);
@@ -155,7 +154,6 @@ function buildCalendarPayload() {
     clientId: CLIENT_ID
   };
 
-  // Nếu file đính kèm base64 quá lớn (>850KB), chỉ giữ tên file trên mây để không vượt giới hạn 1MB của Firestore
   if (new Blob([JSON.stringify(payload)]).size > MAX_DOC_BYTES) {
     payload.tasks = tasksCopy.map(t => ({
       ...t,
@@ -233,7 +231,6 @@ async function startCloudSync() {
   setSyncStatus('↻ Đang kết nối...', 'syncing');
 
   try {
-    // Kiểm tra xem trên mây đã có dữ liệu chưa
     const [calSnap, examSnap, pomoSnap] = await Promise.all([
       getDoc(getUserDocRef('calendar')),
       getDoc(getUserDocRef('exams')),
@@ -243,11 +240,9 @@ async function startCloudSync() {
     const hasCloudData = calSnap.exists() || examSnap.exists() || pomoSnap.exists();
 
     if (!hasCloudData) {
-      // Lần đầu tiên đăng nhập -> đẩy toàn bộ dữ liệu đang có trên máy lên mây
       await pushAllToCloud(false);
       showToast('Đã đồng bộ toàn bộ dữ liệu hiện có của bạn lên đám mây!');
     } else {
-      // Đã có dữ liệu trên mây -> tải về máy hiện tại
       isApplyingRemote = true;
       if (calSnap.exists()) applyRemoteCalendar(calSnap.data());
       if (examSnap.exists()) applyRemoteExams(examSnap.data());
@@ -257,7 +252,6 @@ async function startCloudSync() {
       refreshAllViewsAfterRemote();
     }
 
-    // Lắng nghe thay đổi real-time từ thiết bị khác
     unsubscribers.push(
       onSnapshot(getUserDocRef('calendar'), (snap) => {
         if (!snap.exists()) return;
@@ -321,7 +315,6 @@ function applyRemotePomo(data) {
   if (data.pomodoro) state.pomodoro = data.pomodoro;
 }
 
-// Hook tự động vào saveState() gốc để mọi thay đổi đều tự đẩy lên mây
 function hookSaveState() {
   const originalSave = window.saveState;
   if (typeof originalSave !== 'function') return;
@@ -331,11 +324,10 @@ function hookSaveState() {
   };
 }
 
-// ================= GIAO DIỆN ĐIỀU HƯỚNG MOBILE (DRAWER + BOTTOM BAR) =================
+// ================= GIAO DIỆN MOBILE: CHỈ DÙNG NÚT ☰ GÓC TRÊN TRÁI =================
 function initMobileNavigation() {
-  if (document.getElementById('mobile-bottom-nav')) return;
+  if (document.getElementById('mobile-menu-fab')) return;
 
-  // Backdrop đóng sidebar trên mobile
   const backdrop = document.createElement('div');
   backdrop.id = 'mobile-sidebar-backdrop';
   backdrop.className = 'mobile-sidebar-backdrop';
@@ -344,50 +336,25 @@ function initMobileNavigation() {
   });
   document.body.appendChild(backdrop);
 
-  // Nút mở nhanh Sidebar trên góc trái các trang thường
   const menuBtn = document.createElement('button');
   menuBtn.id = 'mobile-menu-fab';
   menuBtn.className = 'mobile-menu-fab';
-  menuBtn.title = 'Mở menu & Đồng bộ';
+  menuBtn.title = 'Mở menu chức năng';
   menuBtn.innerHTML = '☰';
   menuBtn.addEventListener('click', () => {
     document.body.classList.toggle('mobile-menu-open');
   });
   document.body.appendChild(menuBtn);
 
-  // Thanh điều hướng 5 tab ở đáy màn hình điện thoại
-  const bottomNav = document.createElement('nav');
-  bottomNav.id = 'mobile-bottom-nav';
-  bottomNav.className = 'mobile-bottom-nav';
-  bottomNav.innerHTML = `
-    <button type="button" class="mbn-item active" data-mb-tab="calendar"><span>◫</span><small>Lịch</small></button>
-    <button type="button" class="mbn-item" data-mb-tab="exams"><span>▤</span><small>Luyện đề</small></button>
-    <button type="button" class="mbn-item" data-mb-tab="pomodoro"><span>◎</span><small>Focus</small></button>
-    <button type="button" class="mbn-item" data-mb-tab="mistakes"><span>◈</span><small>Lỗi sai</small></button>
-    <button type="button" class="mbn-item" data-mb-tab="analytics"><span>◬</span><small>Biểu đồ</small></button>
-  `;
-  document.body.appendChild(bottomNav);
-
-  const syncBottomActive = (tabName) => {
-    bottomNav.querySelectorAll('.mbn-item').forEach(b => {
-      b.classList.toggle('active', b.dataset.mbTab === tabName);
-    });
+  const syncMenuFabVisibility = (tabName) => {
+    // Tab Pomodoro đã có sẵn nút ☰ riêng ở góc trên trái
     menuBtn.classList.toggle('hidden', tabName === 'pomodoro');
   };
 
-  bottomNav.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-mb-tab]');
-    if (!btn) return;
-    document.body.classList.remove('mobile-menu-open');
-    if (typeof switchTab === 'function') switchTab(btn.dataset.mbTab);
-    syncBottomActive(btn.dataset.mbTab);
-  });
-
-  // Đồng bộ khi bấm nút trên sidebar hoặc nút ☰ trong Pomodoro
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.addEventListener('click', () => {
       document.body.classList.remove('mobile-menu-open');
-      syncBottomActive(btn.dataset.tab);
+      syncMenuFabVisibility(btn.dataset.tab);
     });
   });
 
@@ -398,11 +365,52 @@ function initMobileNavigation() {
   });
 }
 
+// ================= ĐỒNG BỘ CUỘN NGANG LỊCH TUẦN TRÊN ĐIỆN THOẠI =================
+function initMobileCalendarSync() {
+  const daysHeader = document.getElementById('cal-days-header');
+  const goalsRow = document.getElementById('cal-goals-row');
+  const gridScroll = document.getElementById('cal-grid-scroll');
+  if (!daysHeader || !goalsRow || !gridScroll) return;
+
+  const targets = [daysHeader, goalsRow, gridScroll];
+  let activeSource = null;
+
+  targets.forEach(src => {
+    src.addEventListener('scroll', () => {
+      if (activeSource && activeSource !== src) return;
+      activeSource = src;
+      const left = src.scrollLeft;
+      targets.forEach(dst => {
+        if (dst !== src && dst.scrollLeft !== left) {
+          dst.scrollLeft = left;
+        }
+      });
+      requestAnimationFrame(() => {
+        activeSource = null;
+      });
+    }, { passive: true });
+  });
+
+  // Tự động cuộn ngang tới cột Hôm nay khi mở trên điện thoại
+  if (window.innerWidth <= 960) {
+    setTimeout(() => {
+      const todayCol = gridScroll.querySelector('.cal-col.today-col');
+      if (todayCol) {
+        const targetLeft = Math.max(0, todayCol.offsetLeft - 48);
+        gridScroll.scrollLeft = targetLeft;
+        daysHeader.scrollLeft = targetLeft;
+        goalsRow.scrollLeft = targetLeft;
+      }
+    }, 180);
+  }
+}
+
 // ================= KHỞI CHẠY =================
 function initSyncModule() {
   injectSyncPanel();
   hookSaveState();
   initMobileNavigation();
+  initMobileCalendarSync();
 
   if (!isConfigured || !auth) {
     setSyncStatus('Chưa cấu hình', 'muted');
