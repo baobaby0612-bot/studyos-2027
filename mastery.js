@@ -84,7 +84,7 @@
   let lastExamMaxSec = 0;
 
   function ensureMasteryState() {
-    if (!window.state) return;
+    if (typeof state === 'undefined' || !state) return;
     if (!Array.isArray(state.mastery) || !state.mastery.length) {
       state.mastery = getDefaultMasteryData();
     }
@@ -95,7 +95,7 @@
 
   // ================= 1. INJECT NAV ITEMS & VIEWS =================
   function injectViewsAndNav() {
-    const nav = document.querySelector('.sidebar-nav');
+    const nav = document.querySelector('.nav-menu');
     const main = document.querySelector('.main-content');
     if (!nav || !main) return;
 
@@ -171,7 +171,6 @@
       main.appendChild(secMastery);
     }
 
-    // Modal sửa chuyên đề
     if (!document.getElementById('modal-mastery-edit')) {
       const wrap = document.createElement('div');
       wrap.innerHTML = `
@@ -209,7 +208,6 @@
       document.body.appendChild(wrap.firstElementChild);
     }
 
-    // Modal Nộp bài 1 chạm từ Tab Thi thử
     if (!document.getElementById('modal-exam-submit-bridge')) {
       const wrap = document.createElement('div');
       wrap.innerHTML = `
@@ -253,7 +251,6 @@
       document.body.appendChild(wrap.firstElementChild);
     }
 
-    // Quick-pick chuyên đề bên dưới ô #exam-topics trong modal Thêm/Sửa đề thi
     const topicsInp = document.getElementById('exam-topics');
     if (topicsInp && !document.getElementById('exam-mastery-chips')) {
       const chipWrap = document.createElement('div');
@@ -266,7 +263,7 @@
   // ================= 2. TODAY DASHBOARD (MÀN HÌNH HÔM NAY) =================
   function renderTodayDashboard() {
     const body = document.getElementById('today-dashboard-body');
-    if (!body || !window.state) return;
+    if (!body || typeof state === 'undefined' || !state) return;
 
     const now = new Date();
     const todayISO = formatDateISO(now);
@@ -278,18 +275,13 @@
       heading.textContent = `${DAY_NAMES_FULL[dow]}, ${formatDateVN(todayISO)}`;
     }
 
-    // Đếm ngược
     const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const hsgDiff = Math.ceil((new Date(2027, 0, 26) - todayMidnight) / 86400000);
     const thptDiff = Math.ceil((parseDateISO(state.settings.thptDate) - todayMidnight) / 86400000);
 
-    // Đề chờ chấm
     const pendingExams = (state.exams || []).filter(e => Boolean(e.pending));
-
-    // 3 mục tiêu hôm nay
     const goals = getGoalsForDate(todayISO);
 
-    // Gom lịch trình hôm nay theo giờ
     const timeline = [];
 
     if (state.settings.showSchoolTkb && dow >= 1 && dow <= 5) {
@@ -556,41 +548,29 @@
   }
 
   function detectActiveExamSubject() {
-    const metaBar = document.querySelector('.pomo-exam-meta-bar');
-    if (metaBar) {
-      const sel = metaBar.querySelector('select');
-      if (sel && SUBJECTS[sel.value]) return sel.value;
-    }
-    const activeTab = document.querySelector('#view-pomodoro .pomo-mode-btn.active');
-    const txt = (activeTab?.textContent || '').toLowerCase();
-    if (txt.includes('hsg')) return 'hsg';
-    if (txt.includes('lí') || txt.includes('lý')) return 'ly';
-    if (txt.includes('hóa')) return 'hoa';
-    if (txt.includes('toán')) return 'toan';
+    const activePreset = document.querySelector('#pomo-exam-tabs .pomo-mode-btn.active');
+    const key = activePreset?.dataset?.examPreset;
+    if (key && SUBJECTS[key]) return key;
     return 'toan';
   }
 
   function openExamSubmitBridge() {
-    // Tạm dừng đồng hồ nếu đang chạy
-    const startBtn = document.querySelector('#view-pomodoro .pomo-start-btn');
-    if (startBtn && /pause|tạm dừng/i.test(startBtn.textContent || '')) {
-      startBtn.click();
-    }
-
     const sub = detectActiveExamSubject();
     const defaultMins = SUBJECTS[sub]?.defaultTime || 50;
-    const defaultTotalSec = defaultMins * 60;
+    const customMins = parseInt(document.getElementById('pomo-exam-custom-mins')?.value, 10) || defaultMins;
+    const isCustom = document.querySelector('#pomo-exam-tabs .pomo-mode-btn.active')?.dataset?.examPreset === 'custom';
+    const baseMins = isCustom ? customMins : defaultMins;
+    const baseTotal = Math.max(baseMins * 60, lastExamMaxSec || baseMins * 60);
 
-    const clockEl = document.querySelector('#view-pomodoro .pomo-clock');
+    const clockEl = document.getElementById('pomo-clock-display');
     const remSec = parseClockToSec(clockEl?.textContent || '');
-    const baseTotal = Math.max(defaultTotalSec, lastExamMaxSec || defaultTotalSec);
 
-    let elapsedMin = defaultMins;
+    let elapsedMin = baseMins;
     if (remSec !== null && remSec < baseTotal) {
       elapsedMin = Math.max(1, Math.round((baseTotal - remSec) / 60));
     }
 
-    const nameInp = document.querySelector('#view-pomodoro .pomo-exam-name-input');
+    const nameInp = document.getElementById('pomo-exam-name');
     const examName = (nameInp?.value || '').trim();
 
     document.getElementById('bridge-exam-subject').value = sub;
@@ -599,46 +579,34 @@
     document.getElementById('modal-exam-submit-bridge').classList.remove('hidden');
   }
 
-  function initExamSubmitButton() {
-    const dock = document.querySelector('#view-pomodoro .pomo-dock');
-    const metaBar = document.querySelector('#view-pomodoro .pomo-exam-meta-bar');
-    if (!dock || !metaBar || document.getElementById('btn-pomo-submit-exam')) return;
+  function initExamSubmitBridge() {
+    const metaBar = document.getElementById('pomo-exam-meta-bar');
+    const submitBtn = document.getElementById('btn-pomo-exam-submit');
+    if (submitBtn && !submitBtn.dataset.bridgeBound) {
+      submitBtn.dataset.bridgeBound = '1';
+      submitBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        openExamSubmitBridge();
+      }, true);
+    }
 
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.id = 'btn-pomo-submit-exam';
-    btn.className = 'pomo-dock-btn pomo-submit-exam-btn hidden';
-    btn.innerHTML = '✓ Nộp bài';
-    btn.title = 'Chốt giờ và chuyển thẳng sang Bảng luyện đề';
-
-    const startBtn = dock.querySelector('.pomo-start-btn');
-    if (startBtn) startBtn.insertAdjacentElement('afterend', btn);
-    else dock.appendChild(btn);
-
-    btn.addEventListener('click', openExamSubmitBridge);
-
-    const syncVisibility = () => {
-      const isExamMode = !metaBar.classList.contains('hidden') &&
-        window.getComputedStyle(metaBar).display !== 'none';
-      btn.classList.toggle('hidden', !isExamMode);
-      if (isExamMode) {
-        const clockEl = document.querySelector('#view-pomodoro .pomo-clock');
-        const sec = parseClockToSec(clockEl?.textContent || '');
-        if (sec && sec > lastExamMaxSec) lastExamMaxSec = sec;
-      } else {
-        lastExamMaxSec = 0;
-      }
-    };
-
-    const obs = new MutationObserver(syncVisibility);
-    obs.observe(metaBar, { attributes: true, attributeFilter: ['class', 'style'] });
-    document.getElementById('view-pomodoro')?.addEventListener('click', () => setTimeout(syncVisibility, 40));
-    syncVisibility();
+    if (metaBar) {
+      const trackClock = () => {
+        if (!metaBar.classList.contains('hidden')) {
+          const sec = parseClockToSec(document.getElementById('pomo-clock-display')?.textContent || '');
+          if (sec && sec > lastExamMaxSec) lastExamMaxSec = sec;
+        } else {
+          lastExamMaxSec = 0;
+        }
+      };
+      document.getElementById('view-pomodoro')?.addEventListener('click', () => setTimeout(trackClock, 50));
+      trackClock();
+    }
   }
 
   // ================= 5. HOOK SWITCHTAB & EVENTS =================
   function bindEvents() {
-    // Wrap switchTab để hỗ trợ 2 tab mới + ẩn/hiện nút ☰
     const origSwitchTab = window.switchTab;
     window.switchTab = function (tabName) {
       if (typeof origSwitchTab === 'function') origSwitchTab(tabName);
@@ -648,15 +616,13 @@
       if (fab) fab.classList.toggle('hidden', tabName === 'pomodoro');
     };
 
-    // Gắn click cho 2 nút nav vừa thêm
-    document.querySelectorAll('.sidebar-nav .nav-item[data-tab="today"], .sidebar-nav .nav-item[data-tab="mastery"]').forEach(btn => {
+    document.querySelectorAll('.nav-menu .nav-item[data-tab="today"], .nav-menu .nav-item[data-tab="mastery"]').forEach(btn => {
       btn.addEventListener('click', () => {
         document.body.classList.remove('mobile-menu-open');
         window.switchTab(btn.dataset.tab);
       });
     });
 
-    // Today Dashboard actions
     document.getElementById('btn-today-goto-cal')?.addEventListener('click', () => window.switchTab('calendar'));
     document.getElementById('btn-today-goto-pomo')?.addEventListener('click', () => window.switchTab('pomodoro'));
     document.getElementById('btn-today-add-task')?.addEventListener('click', () => {
@@ -724,7 +690,6 @@
       if (typeof renderCalendar === 'function') renderCalendar();
     });
 
-    // Tự cập nhật Today Dashboard sau khi đóng modal chỉnh sửa task / TKB
     const origSave = window.saveState;
     if (typeof origSave === 'function') {
       window.saveState = function () {
@@ -933,7 +898,6 @@
     document.getElementById('btn-bridge-grade-now')?.addEventListener('click', () => launchExamFromBridge(false));
     document.getElementById('btn-bridge-pending')?.addEventListener('click', () => launchExamFromBridge(true));
 
-    // Khi có dữ liệu mới đồng bộ từ Firebase về
     window.addEventListener('studyos:synced', () => {
       ensureMasteryState();
       if (document.getElementById('view-today')?.classList.contains('active')) renderTodayDashboard();
@@ -944,11 +908,10 @@
   function initMasteryAndToday() {
     ensureMasteryState();
     injectViewsAndNav();
-    initExamSubmitButton();
+    initExamSubmitBridge();
     bindEvents();
 
-    // Trên điện thoại tự mở thẳng màn hình "Hôm nay" cho tiện xem dọc
-    if (window.innerWidth <= 960) {
+    if (window.innerWidth <= 960 && document.getElementById('view-today')) {
       window.switchTab('today');
     }
   }
