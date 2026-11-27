@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <link rel="stylesheet" href="pomodoro.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StudyOS 2027 — Lịch Học & Theo Dõi Luyện Đề</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-dot"></div>
+        <div>
+          <div class="brand-title">StudyOS 2027</div>
+          <div class="brand-sub">HSG Toán & TN THPT</div>
+        </div>
+      </div>
+
+      <!-- DUAL COUNTDOWN -->
+      <div class="countdown-group">
+        <div class="countdown-card hsg-card">
+          <div class="cd-top">
+            <span class="cd-label">HSG Toán TP.HCM</span>
+            <span class="cd-date">26/01/2027</span>
+          </div>
+          <div class="cd-value" id="cd-hsg-days">-- ngày</div>
+        </div>
+
+        <div class="countdown-card thpt-card" id="btn-edit-thpt-date" title="Nhấn để chỉnh ngày thi TN THPT">
+          <div class="cd-top">
+            <span class="cd-label">TN THPT 2027 ✎</span>
+            <span class="cd-date" id="cd-thpt-date-label">11/06/2027</span>
+          </div>
+          <div class="cd-value" id="cd-thpt-days">-- ngày</div>
+        </div>
+      </div>
+
+      <!-- NAVIGATION -->
+      <nav class="nav-menu">
+        <button class="nav-item active" data-tab="calendar">
+          <span class="nav-icon">◫</span>
+          <span>Lịch tuần & TKB</span>
+        </button>
+        <button class="nav-item" data-tab="exams">
+          <span class="nav-icon">▤</span>
+          <span>Bảng luyện đề</span>
+        </button>
+        <button class="nav-item" data-tab="timer">
+          <span class="nav-icon">◔</span>
+          <span>Bấm giờ thi</span>
+          <span class="nav-badge hidden" id="nav-timer-badge">00:00</span>
+        </button>
+        <button class="nav-item" data-tab="pomodoro">
+          <span class="nav-icon">◎</span>
+          <span>Pomodoro</span>
+          <span class="nav-badge hidden" id="nav-pomo-badge">00:00</span>
+        </button>
+        <button class="nav-item" data-tab="mistakes">
+          <span class="nav-icon">◈</span>
+          <span>Sổ tay lỗi sai</span>
+        </button>
+        <button class="nav-item" data-tab="analytics">
+          <span class="nav-icon">◬</span>
+          <span>Biểu đồ phong độ</span>
+        </button>
+      </nav>
+
+      <!-- COURSE & RESOURCE LINKS HUB -->
+      <div class="sidebar-section">
+        <div class="footer-label" style="margin-bottom:8px;">Khóa học & Tài nguyên</div>
+        <div class="resource-hub">
+          <a class="res-direct-link sub-dot-hsg" href="https://baobaby0612-bot.github.io/hsg_toan_tphcm/" target="_blank" rel="noopener noreferrer">
+            <span class="res-name">Ngân hàng đề HSG Toán</span>
+            <span class="res-arrow">↗</span>
+          </a>
+
+          <details class="res-group">
+            <summary class="res-summary sub-dot-toan">
+              <span>Toán TE</span>
+              <span class="res-chevron">▾</span>
+            </summary>
+            <div class="res-sublinks">
+              <a href="https://tenschool.vn/khoa-hoc/2k9-xuat-phat-som-toan-12-khoa-t-nen-tang-thay-do-van-duc-1763948725760#019f453bd02d7ed8832017d263193b1d" target="_blank" rel="noopener noreferrer">Web khóa học ↗</a>
+              <a href="https://docs.google.com/spreadsheets/d/1yATg703dh44yEdDzwPLXQdjq9Ms_nVvHUKr9Ck5HyZM/edit?gid=2044446692#gid=2044446692" target="_blank" rel="noopener noreferrer">Thời khóa biểu ↗</a>
+              <a href="https://www.facebook.com/groups/2k9nentang" target="_blank" rel="noopener noreferrer">Group Facebook ↗</a>
+            </div>
+          </details>
+
+          <a class="res-direct-link sub-dot-toan" href="https://tenschool.vn/khoa-hoc/2k9-xuat-phat-som-toan-12-khoa-ns-thuc-chien-luyen-de-tong-on-trong-diem-thay-do-van-duc-1773368678540#01a1806f9d327084a32f2770cfb87d9c" target="_blank" rel="noopener noreferrer">
+            <span class="res-name">Toán NS (Web)</span>
+            <span class="res-arrow">↗</span>
+          </a>
+
+          <details class="res-group">
+            <summary class="res-summary sub-dot-hoa">
+              <span>Hóa T</span>
+              <span class="res-chevron">▾</span>
+            </summary>
+            <div class="res-sublinks">
+              <a href="https://tenschool.vn/khoa-hoc/2k9-xuat-phat-som-hoa-12-khoa-t-nen-tang-thay-pham-van-trong-1763948804992#019f453bd06c7f37812a2f420cbbfe93" target="_blank" rel="noopener noreferrer">Web khóa học ↗</a>
+              <a href="https://docs.google.com/spreadsheets/d/1GQR1BFUPQpdZvMfwrh3sRWW69XplZuIpfrU0ZpFPW4E/htmlview?ouid=100902022268335599832&usp=sheets_home&ths=true&pru=AAABoM6BUz8*E93BHbUz-dNiPa6KpTTshw" target="_blank" rel="noopener noreferrer">Excel bài giảng ↗</a>
+              <a href="https://www.facebook.com/groups/24553101114302935" target="_blank" rel="noopener noreferrer">Group Facebook ↗</a>
+            </div>
+          </details>
+
+          <details class="res-group">
+            <summary class="res-summary sub-dot-hoa">
+              <span>Hóa EN</span>
+              <span class="res-chevron">▾</span>
+            </summary>
+            <div class="res-sublinks">
+              <a href="https://tenschool.vn/khoa-hoc/2k9-hoa-12-khoa-en-thuc-chien-luyen-de-tong-on-trong-diem-thay-pham-van-trong-1793071079672#01a10cb70e7f7c0b89569bc23364e84e" target="_blank" rel="noopener noreferrer">Web khóa học ↗</a>
+              <a href="https://docs.google.com/spreadsheets/d/15le12uGpocI2Hnqmg56wI5omZlRuD1fzRflsw-s7qnI/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer">Excel bài giảng ↗</a>
+              <a href="https://www.facebook.com/groups/1873302866891976" target="_blank" rel="noopener noreferrer">Group Facebook ↗</a>
+            </div>
+          </details>
+
+          <details class="res-group">
+            <summary class="res-summary sub-dot-ly">
+              <span>Lý (Mapstudy)</span>
+              <span class="res-chevron">▾</span>
+            </summary>
+            <div class="res-sublinks">
+              <a href="https://mapstudy.edu.vn/ca-nhan/khoa-hoc" target="_blank" rel="noopener noreferrer">Web khóa học ↗</a>
+              <a href="https://www.facebook.com/groups/1254602582386835" target="_blank" rel="noopener noreferrer">Group Facebook ↗</a>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <!-- DATA BACKUP -->
+      <div class="sidebar-footer">
+        <div class="footer-label">Dữ liệu cá nhân</div>
+        <div class="backup-actions">
+          <button class="btn-ghost btn-sm" id="btn-export-json">Xuất .json</button>
+          <button class="btn-ghost btn-sm" id="btn-import-json">Nhập .json</button>
+          <input type="file" id="input-import-json" accept=".json" hidden />
+        </div>
+        <button class="btn-link-muted" id="btn-load-demo">Nạp dữ liệu mẫu để thử</button>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+      <!-- TAB 1: CALENDAR -->
+      <section class="view active" id="view-calendar">
+        <header class="view-header">
+          <div class="header-left">
+            <h1>Lịch học tuần</h1>
+            <div class="week-nav">
+              <button class="btn-icon" id="btn-prev-week" title="Tuần trước">‹</button>
+              <button class="btn-ghost btn-sm" id="btn-today-week">Hôm nay</button>
+              <button class="btn-icon" id="btn-next-week" title="Tuần sau">›</button>
+              <span class="week-range-label" id="cal-week-label"></span>
+            </div>
+          </div>
+          <div class="header-right">
+            <label class="switch-label">
+              <input type="checkbox" id="toggle-school-tkb" checked />
+              <span>Tiết học trường</span>
+            </label>
+            <label class="switch-label">
+              <input type="checkbox" id="toggle-fixed-tkb" checked />
+              <span>TKB cố định</span>
+            </label>
+            <button class="btn-ghost btn-sm" id="btn-open-school-matrix">TKB 12A2</button>
+            <button class="btn-ghost btn-sm" id="btn-open-tkb-modal">Cài đặt TKB</button>
+            <button class="btn-primary" id="btn-open-task-modal">+ Thêm việc</button>
+          </div>
+        </header>
+
+        <div class="calendar-wrapper">
+          <div class="cal-sticky-top">
+            <div class="cal-corner-cell">04:30–24:00</div>
+            <div class="cal-days-header" id="cal-days-header"></div>
+          </div>
+          <div class="cal-goals-strip">
+            <div class="cal-goals-label">
+              <span>Mục tiêu ngày</span>
+              <small>(tối đa 3)</small>
+            </div>
+            <div class="cal-goals-row" id="cal-goals-row"></div>
+          </div>
+
+          <div class="cal-grid-scroll" id="cal-grid-scroll">
+            <div class="cal-grid-body">
+              <div class="cal-time-labels" id="cal-time-labels"></div>
+              <div class="cal-columns-container" id="cal-columns-container"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: EXAMS TABLE -->
+      <section class="view" id="view-exams">
+        <header class="view-header">
+          <div class="header-left">
+            <h1>Bảng theo dõi luyện đề</h1>
+          </div>
+          <div class="header-right">
+            <input type="text" class="input-search" id="exam-search-input" placeholder="Tìm tên đề, chuyên đề, ghi chú..." />
+            <button class="btn-primary" id="btn-open-exam-modal">+ Thêm đề thi</button>
+          </div>
+        </header>
+
+        <div class="filter-bar" id="exam-subject-filters">
+          <button class="filter-pill active" data-subject="all">Tất cả</button>
+          <button class="filter-pill" data-subject="hsg">HSG Toán</button>
+          <button class="filter-pill" data-subject="toan">Toán TN</button>
+          <button class="filter-pill" data-subject="ly">Vật lí</button>
+          <button class="filter-pill" data-subject="hoa">Hóa học</button>
+        </div>
+
+        <div class="table-card">
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width: 48px;">STT</th>
+                  <th>Tên đề & Ngày</th>
+                  <th style="width: 110px;">Môn</th>
+                  <th style="width: 95px;">Thời gian</th>
+                  <th style="width: 95px;">Điểm</th>
+                  <th>Chi tiết điểm & Câu sai</th>
+                  <th>Lỗi sai & Nhận xét</th>
+                  <th style="width: 105px;">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody id="exams-table-body"></tbody>
+            </table>
+          </div>
+          <div class="empty-state hidden" id="exams-empty-state">
+            Chưa có đề thi thử nào được lưu. Nhấn <strong>+ Thêm đề thi</strong> hoặc dùng tab <strong>Bấm giờ thi</strong> để bắt đầu.
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: EXAM TIMER -->
+      <section class="view" id="view-timer">
+        <div class="timer-stage">
+          <div class="timer-presets" id="timer-presets">
+            <button class="preset-btn active" data-subject="hsg" data-minutes="120">HSG Toán · 120p</button>
+            <button class="preset-btn" data-subject="toan" data-minutes="90">Toán TN · 90p</button>
+            <button class="preset-btn" data-subject="ly" data-minutes="50">Vật lí · 50p</button>
+            <button class="preset-btn" data-subject="hoa" data-minutes="50">Hóa học · 50p</button>
+            <button class="preset-btn" data-subject="custom" data-minutes="60">Tùy chỉnh</button>
+          </div>
+
+          <div class="timer-meta-inputs">
+            <input type="text" id="timer-exam-name" class="timer-input" placeholder="Nhập tên đề đang làm (tùy chọn)..." />
+            <div class="custom-min-wrap hidden" id="timer-custom-minutes-wrap">
+              <div class="time-combo" data-duration-combo>
+                <input type="text" id="timer-custom-minutes" class="timer-input small time-combo-input" value="60" autocomplete="off" placeholder="Phút" />
+                <div class="time-combo-dropdown hidden"></div>
+              </div>
+              <span>phút</span>
+            </div>
+          </div>
+
+          <div class="timer-ring-container">
+            <svg class="timer-svg" viewBox="0 0 260 260">
+              <circle class="timer-ring-bg" cx="130" cy="130" r="116" />
+              <circle class="timer-ring-progress" id="timer-ring-progress" cx="130" cy="130" r="116" />
+            </svg>
+            <div class="timer-center">
+              <div class="timer-clock" id="timer-display">120:00</div>
+              <div class="timer-status-pill" id="timer-status-pill">● Sẵn sàng</div>
+            </div>
+          </div>
+
+          <div class="timer-alerts-row">
+            <label class="check-inline">
+              <input type="checkbox" id="timer-alert-15" checked />
+              <span>Nhắc mốc 15p cuối</span>
+            </label>
+            <label class="check-inline">
+              <input type="checkbox" id="timer-alert-5" checked />
+              <span>Nhắc mốc 5p cuối</span>
+            </label>
+          </div>
+
+          <div class="timer-controls-dock">
+            <button class="btn-ghost" id="btn-timer-reset">Đặt lại</button>
+            <button class="btn-primary btn-lg" id="btn-timer-toggle">Bắt đầu</button>
+            <button class="btn-ghost accent-outline" id="btn-timer-finish">Nộp bài & Lưu điểm</button>
+          </div>
+
+          <p class="timer-quote" id="timer-quote" title="Nhấn để đổi câu trích dẫn">
+            “You can be a masterpiece and a work in progress at the same time.”
+          </p>
+        </div>
+      </section>
+      <!-- TAB: POMODORO & TASKS -->
+      <section class="view" id="view-pomodoro"></section>
+
+      <!-- TAB 4: MISTAKE NOTEBOOK -->
+      <section class="view" id="view-mistakes">
+        <header class="view-header">
+          <div class="header-left">
+            <h1>Sổ tay lỗi sai & Bẫy đề</h1>
+          </div>
+          <div class="header-right">
+            <input type="text" class="input-search" id="mistake-search-input" placeholder="Tìm chuyên đề, từ khóa lỗi sai..." />
+          </div>
+        </header>
+
+        <div class="mistakes-filters">
+          <select id="mistake-filter-subject" class="select-control">
+            <option value="all">Tất cả môn</option>
+            <option value="hsg">HSG Toán</option>
+            <option value="toan">Toán TN</option>
+            <option value="ly">Vật lí</option>
+            <option value="hoa">Hóa học</option>
+          </select>
+          <select id="mistake-filter-reason" class="select-control">
+            <option value="all">Tất cả nguyên nhân</option>
+            <option value="Tính nhầm">Tính nhầm</option>
+            <option value="Đọc sót đề">Đọc sót đề</option>
+            <option value="Hiểu sai đề">Hiểu sai đề</option>
+            <option value="Thiếu thời gian">Thiếu thời gian</option>
+            <option value="Hổng kiến thức">Hổng kiến thức</option>
+            <option value="Mất điểm trình bày">Mất điểm trình bày</option>
+            <option value="Bẫy lý thuyết">Bẫy lý thuyết</option>
+          </select>
+          <select id="mistake-filter-level" class="select-control">
+            <option value="all">Tất cả mức độ (TN THPT)</option>
+            <option value="NB">Nhận biết</option>
+            <option value="TH">Thông hiểu</option>
+            <option value="VDT">Vận dụng thấp</option>
+            <option value="VDC">Vận dụng cao</option>
+          </select>
+        </div>
+
+        <div class="mistakes-grid" id="mistakes-list"></div>
+        <div class="empty-state hidden" id="mistakes-empty-state">
+          Chưa có ghi chú lỗi sai nào khớp với bộ lọc. Hãy ghi lại lỗi sai khi nhập kết quả đề thi thử.
+        </div>
+      </section>
+
+      <!-- TAB 5: ANALYTICS -->
+      <section class="view" id="view-analytics">
+        <header class="view-header">
+          <div class="header-left">
+            <h1>Thống kê & Biểu đồ phong độ</h1>
+          </div>
+        </header>
+
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Tổng số đề đã làm</div>
+            <div class="kpi-value" id="kpi-total-exams">0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">TB TN THPT (Toán / Lí / Hóa)</div>
+            <div class="kpi-value small-val" id="kpi-avg-tn">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Điểm TB HSG Toán</div>
+            <div class="kpi-value" id="kpi-avg-hsg">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Tổng thời gian luyện đề</div>
+            <div class="kpi-value" id="kpi-total-time">0g 0p</div>
+          </div>
+        </div>
+
+        <div class="charts-layout">
+          <div class="chart-card full-width">
+            <div class="chart-header">
+              <h3>Phong độ điểm số qua từng đề</h3>
+              <div class="filter-bar compact" id="analytics-subject-pills">
+                <button class="filter-pill active" data-subject="hsg">HSG Toán (/20)</button>
+                <button class="filter-pill" data-subject="toan">Toán TN (/10)</button>
+                <button class="filter-pill" data-subject="ly">Vật lí (/10)</button>
+                <button class="filter-pill" data-subject="hoa">Hóa học (/10)</button>
+              </div>
+            </div>
+            <div class="chart-canvas-wrap tall">
+              <canvas id="chart-score-trend"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3>Nguyên nhân mất điểm thường gặp</h3>
+            </div>
+            <div class="chart-canvas-wrap">
+              <canvas id="chart-error-reasons"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3>Câu sai theo mức độ nhận thức (TN THPT)</h3>
+            </div>
+            <div class="chart-canvas-wrap">
+              <canvas id="chart-error-levels"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL 0: TASK DETAIL PREVIEW (GOOGLE CALENDAR STYLE) -->
+  <div class="modal-backdrop hidden" id="modal-task-view">
+    <div class="modal-box modal-task-view-card">
+      <div class="task-view-topbar">
+        <button class="btn-icon" id="btn-view-edit-task" title="Chỉnh sửa nhiệm vụ">✎</button>
+        <button class="btn-icon danger-icon" id="btn-view-delete-task" title="Xóa nhiệm vụ">🗑</button>
+        <button class="btn-icon" data-close-modal="modal-task-view" title="Đóng">✕</button>
+      </div>
+      <div class="task-view-content" id="task-view-content"></div>
+    </div>
+  </div>
+
+  <!-- MODAL 1: ADD / EDIT TASK -->
+  <div class="modal-backdrop hidden" id="modal-task">
+    <div class="modal-box modal-task-wide">
+      <div class="modal-header">
+        <h2 id="modal-task-title">Thêm nhiệm vụ học tập</h2>
+        <button class="btn-icon" data-close-modal="modal-task">✕</button>
+      </div>
+      <form id="form-task" class="modal-body">
+        <input type="hidden" id="task-id" />
+        <div class="form-group">
+          <label>Tên việc cần làm *</label>
+          <input type="text" id="task-title" required placeholder="VD: Làm đề Toán Sở lần 2, Ôn Hình Oxyz..." />
+        </div>
+        <div class="form-row-3">
+          <div class="form-group">
+            <label>Ngày *</label>
+            <input type="date" id="task-date" required />
+          </div>
+          <div class="form-group">
+            <label>Bắt đầu (chọn / gõ)</label>
+            <div class="time-combo" data-time-combo="start">
+              <input type="text" id="task-start" class="time-combo-input" autocomplete="off" placeholder="VD: 19:00" required />
+              <div class="time-combo-dropdown hidden"></div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Kết thúc (chọn / gõ)</label>
+            <div class="time-combo" data-time-combo="end">
+              <input type="text" id="task-end" class="time-combo-input" autocomplete="off" placeholder="VD: 20:30" required />
+              <div class="time-combo-dropdown hidden"></div>
+            </div>
+          </div>
+        </div>
+        <div class="form-row-2">
+          <div class="form-group">
+            <label>Môn học</label>
+            <select id="task-subject">
+              <option value="hsg">HSG Toán</option>
+              <option value="toan">Toán TN</option>
+              <option value="ly">Vật lí</option>
+              <option value="hoa">Hóa học</option>
+              <option value="other">Khác / Cá nhân</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Trạng thái</label>
+            <select id="task-status">
+              <option value="backlog">Backlog</option>
+              <option value="todo" selected>Todo</option>
+              <option value="in_progress">In Progress</option>
+              <option value="done">Done</option>
+              <option value="canceled">Canceled</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Ghi chú</label>
+          <textarea id="task-notes" rows="2" placeholder="Nội dung chi tiết hoặc chương/bài cần hoàn thành..."></textarea>
+        </div>
+
+        <!-- MULTIPLE LESSON LINKS (OPTIONAL) -->
+        <div class="form-group">
+          <label>Link bài học (có thể thêm nhiều link)</label>
+          <div class="multi-link-add-row">
+            <input type="text" id="task-new-link-title" placeholder="Tên link (tùy chọn)" style="width: 38%;" />
+            <input type="text" id="task-new-link-url" placeholder="Dán URL (TenSchool, Mapstudy, Drive...)" style="flex: 1;" />
+            <button type="button" class="btn-ghost btn-sm" id="btn-add-task-link">+ Thêm</button>
+          </div>
+          <div id="task-links-list" class="attachments-list"></div>
+        </div>
+
+        <!-- DRAG & DROP ATTACHMENTS (OPTIONAL) -->
+        <div class="form-group">
+          <label>Tài liệu đính kèm (tùy chọn)</label>
+          <div class="dropzone" id="task-dropzone">
+            <div class="dropzone-text">
+              <strong>Kéo thả file từ File Explorer vào đây</strong> hoặc <span class="dropzone-pick-link">nhấn để chọn file</span>
+            </div>
+            <div class="dropzone-hint">Hỗ trợ PDF, ảnh đề bài (mở xem trực tiếp không tải lại), tối đa 1.5MB/file.</div>
+            <input type="file" id="task-files-input" multiple hidden />
+          </div>
+          <div id="task-attachments-list" class="attachments-list"></div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-danger hidden" id="btn-delete-task">Xóa</button>
+          <div class="modal-footer-right">
+            <button type="button" class="btn-ghost" data-close-modal="modal-task">Hủy</button>
+            <button type="submit" class="btn-primary">Lưu nhiệm vụ</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: FIXED TIMETABLE -->
+  <div class="modal-backdrop hidden" id="modal-tkb">
+    <div class="modal-box modal-lg">
+      <div class="modal-header">
+        <h2>Cài đặt Thời khóa biểu cố định (lặp hàng tuần)</h2>
+        <button class="btn-icon" data-close-modal="modal-tkb">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-tkb" class="tkb-add-box">
+          <div class="form-row-2">
+            <div class="form-group">
+              <label>Tên khung giờ cố định *</label>
+              <input type="text" id="tkb-title" required placeholder="VD: Học thêm Lý, Luyện đề HSG tối..." />
+            </div>
+            <div class="form-group">
+              <label>Màu / Phân loại</label>
+              <select id="tkb-subject">
+                <option value="other">Lịch cố định (Nổi bật)</option>
+                <option value="hsg">HSG Toán</option>
+                <option value="toan">Toán TN</option>
+                <option value="ly">Vật lí</option>
+                <option value="hoa">Hóa học</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row-3">
+            <div class="form-group">
+              <label>Bắt đầu (chọn / gõ)</label>
+              <div class="time-combo" data-time-combo="start">
+                <input type="text" id="tkb-start" class="time-combo-input" autocomplete="off" placeholder="19:30" required />
+                <div class="time-combo-dropdown hidden"></div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Kết thúc (chọn / gõ)</label>
+              <div class="time-combo" data-time-combo="end">
+                <input type="text" id="tkb-end" class="time-combo-input" autocomplete="off" placeholder="21:30" required />
+                <div class="time-combo-dropdown hidden"></div>
+              </div>
+            </div>
+            <div class="form-group" style="display:flex;align-items:flex-end;">
+              <button type="submit" class="btn-primary full-btn">+ Thêm vào TKB</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Áp dụng cho các thứ:</label>
+            <div class="day-checkboxes">
+              <label><input type="checkbox" class="tkb-day-cb" value="1" checked /> T2</label>
+              <label><input type="checkbox" class="tkb-day-cb" value="2" checked /> T3</label>
+              <label><input type="checkbox" class="tkb-day-cb" value="3" checked /> T4</label>
+              <label><input type="checkbox" class="tkb-day-cb" value="4" checked /> T5</label>
+              <label><input type="checkbox" class="tkb-day-cb" value="5" checked /> T6</label>
+              <label><input type="checkbox" class="tkb-day-cb" value="6" /> T7</label>
+              <label><input type="checkbox" class="tkb-day-cb" value="0" /> CN</label>
+            </div>
+          </div>
+        </form>
+
+        <div class="tkb-list-wrap">
+          <h4>Danh sách khung giờ cố định hiện tại</h4>
+          <div id="tkb-list" class="tkb-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2B: SCHOOL PERIOD DETAIL -->
+  <div class="modal-backdrop hidden" id="modal-school-slot">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div>
+          <h2 id="school-slot-modal-title">Chi tiết tiết học</h2>
+          <div id="school-slot-modal-sub" style="font-size:12px;color:var(--text-muted);margin-top:2px;"></div>
+        </div>
+        <button class="btn-icon" data-close-modal="modal-school-slot">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="tkb-add-box">
+          <div style="font-size:12px;color:var(--accent-hover);font-weight:600;">Môn học cố định của tiết này (lặp mỗi tuần)</div>
+          <div class="form-group">
+            <label>Tên môn học (gõ để tìm hoặc nhấn để chọn từ danh sách)</label>
+            <div class="subject-combo" id="school-subject-combo">
+              <input type="text" id="school-slot-subject-name" autocomplete="off" placeholder="Chọn hoặc nhập tên môn..." />
+              <div class="subject-combo-dropdown hidden" id="school-subject-dropdown"></div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;">
+            <button type="button" class="btn-ghost btn-sm" id="btn-clear-school-slot">Xóa môn tiết này</button>
+            <button type="button" class="btn-primary btn-sm" id="btn-save-school-slot">Lưu môn học</button>
+          </div>
+        </div>
+
+        <div class="school-tasks-section">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <strong style="font-size:13.5px;" id="school-slot-tasks-heading">Việc cần làm riêng cho ngày này</strong>
+          </div>
+          <form id="form-school-day-task" class="school-task-add-row">
+            <select id="school-day-task-tag" style="width:118px;flex-shrink:0;">
+              <option value="BTVN">BTVN</option>
+              <option value="Kiểm tra">Kiểm tra</option>
+              <option value="Chuẩn bị">Chuẩn bị</option>
+              <option value="Khác">Khác</option>
+            </select>
+            <input type="text" id="school-day-task-text" placeholder="VD: Làm bài 1-5 SGK, KT 15p Chương 3..." required style="flex:1;" />
+            <button type="submit" class="btn-primary btn-sm">+ Thêm</button>
+          </form>
+          <div id="school-slot-tasks-list" class="school-tasks-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2C: QUICK EDIT ENTIRE SCHOOL TIMETABLE (T2-T6) -->
+  <div class="modal-backdrop hidden" id="modal-school-matrix">
+    <div class="modal-box modal-xl">
+      <div class="modal-header">
+        <div>
+          <h2>Thời khóa biểu trên trường — Lớp 12A2 (Thứ 2 – Thứ 6)</h2>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Nhấn vào ô để chọn môn gợi ý hoặc gõ tên môn · Tự động tô màu riêng cho từng môn</div>
+        </div>
+        <button class="btn-icon" data-close-modal="modal-school-matrix">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="matrix-table" id="school-matrix-table"></table>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost btn-sm" id="btn-reset-12a2-default">Khôi phục TKB 12A2 mặc định</button>
+          <div class="modal-footer-right">
+            <button type="button" class="btn-ghost" data-close-modal="modal-school-matrix">Đóng</button>
+            <button type="button" class="btn-primary" id="btn-save-school-matrix">Lưu TKB trường</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <datalist id="school-subjects-datalist"></datalist>
+
+  <!-- MODAL 3: ADD / EDIT EXAM -->
+  <div class="modal-backdrop hidden" id="modal-exam">
+    <div class="modal-box modal-xl">
+      <div class="modal-header">
+        <h2 id="modal-exam-title">Thêm kết quả đề thi thử</h2>
+        <button class="btn-icon" data-close-modal="modal-exam">✕</button>
+      </div>
+      <form id="form-exam" class="modal-body">
+        <input type="hidden" id="exam-id" />
+
+        <div class="exam-top-grid">
+          <div class="form-group">
+            <label>Môn thi *</label>
+            <select id="exam-subject">
+              <option value="hsg">HSG Toán (Thang 20 · 120p)</option>
+              <option value="toan">Toán TN (Thang 10 · 90p)</option>
+              <option value="ly">Vật lí (Thang 10 · 50p)</option>
+              <option value="hoa">Hóa học (Thang 10 · 50p)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Tên đề thi *</label>
+            <input type="text" id="exam-name" required placeholder="VD: Đề thi thử Sở GD lần 1, Đề chọn đội tuyển..." />
+          </div>
+          <div class="form-group">
+            <label>Ngày làm</label>
+            <input type="date" id="exam-date" required />
+          </div>
+          <div class="form-group">
+            <label>Thời gian làm (phút) <small id="exam-default-time-hint"></small></label>
+            <div class="time-combo" data-duration-combo>
+              <input type="text" id="exam-duration" class="time-combo-input" autocomplete="off" required />
+              <div class="time-combo-dropdown hidden"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="score-banner">
+          <div>
+            <div class="score-banner-label">Tổng điểm tự động tính</div>
+            <div class="score-banner-sub" id="exam-banner-sub">Mặc định nhập điểm từng phần, hoặc mở chi tiết để chọn câu sai (tự động đồng bộ điểm)</div>
+          </div>
+          <div class="score-banner-value">
+            <span id="exam-total-display">0.00</span>
+            <small id="exam-total-max">/ 20</small>
+          </div>
+        </div>
+
+        <div id="exam-scoring-container" class="scoring-container"></div>
+
+        <div class="reflection-section">
+          <div class="form-group">
+            <label>Chuyên đề liên quan (ngăn cách bằng dấu phẩy)</label>
+            <input type="text" id="exam-topics" placeholder="VD: Hình Oxyz, Bất đẳng thức, Tích phân, Este - Lipit..." />
+          </div>
+
+          <div class="form-group">
+            <label>Nguyên nhân mất điểm (chọn nhanh)</label>
+            <div class="reason-chips" id="exam-reasons-container"></div>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label>Những lỗi sai cần lưu ý (tự đồng bộ vào Sổ tay lỗi sai)</label>
+              <textarea id="exam-mistakes" rows="3" placeholder="VD: Quên kiểm tra điều kiện xác định của logarit, bấm nhầm Rad/Deg..."></textarea>
+            </div>
+            <div class="form-group">
+              <label>Nhận xét chung về đề & Ghi chú</label>
+              <textarea id="exam-comment" rows="3" placeholder="VD: Đề phân hóa tốt ở Phần III, cần tăng tốc Phần I trong 20 phút..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-danger hidden" id="btn-delete-exam">Xóa đề này</button>
+          <div class="modal-footer-right">
+            <button type="button" class="btn-ghost" data-close-modal="modal-exam">Hủy</button>
+            <button type="submit" class="btn-primary">Lưu kết quả</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 4: CUSTOM CONFIRM DIALOG -->
+  <div class="modal-backdrop confirm-backdrop hidden" id="modal-confirm">
+    <div class="modal-box modal-confirm-box">
+      <div class="modal-header">
+        <h2 id="confirm-title">Xác nhận thao tác</h2>
+        <button class="btn-icon" id="btn-confirm-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-message" style="color:var(--text-muted);font-size:13.5px;line-height:1.55;"></p>
+        <div class="modal-footer" style="border-top:none;padding-top:6px;">
+          <div class="modal-footer-right">
+            <button type="button" class="btn-ghost" id="btn-confirm-cancel">Hủy bỏ</button>
+            <button type="button" class="btn-primary" id="btn-confirm-ok">Xác nhận</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast hidden" id="toast"></div>
+
+  <script src="app.js"></script>
+  <script src="pomodoro.js"></script>
+</body>
+</html>
