@@ -182,6 +182,14 @@ function buildPomoPayload() {
   };
 }
 
+function buildMasteryPayload() {
+  return {
+    mastery: state.mastery || [],
+    updatedAt: Date.now(),
+    clientId: CLIENT_ID
+  };
+}
+
 async function pushAllToCloud(showDoneToast = false) {
   if (!currentUser || !db || isApplyingRemote) return;
   try {
@@ -189,7 +197,8 @@ async function pushAllToCloud(showDoneToast = false) {
     await Promise.all([
       setDoc(getUserDocRef('calendar'), buildCalendarPayload()),
       setDoc(getUserDocRef('exams'), buildExamsPayload()),
-      setDoc(getUserDocRef('pomodoro'), buildPomoPayload())
+      setDoc(getUserDocRef('pomodoro'), buildPomoPayload()),
+      setDoc(getUserDocRef('mastery'), buildMasteryPayload())
     ]);
     setSyncStatus('● Đã đồng bộ', 'ok');
     if (showDoneToast) showToast('Đã đồng bộ dữ liệu lên đám mây!');
@@ -231,13 +240,14 @@ async function startCloudSync() {
   setSyncStatus('↻ Đang kết nối...', 'syncing');
 
   try {
-    const [calSnap, examSnap, pomoSnap] = await Promise.all([
+    const [calSnap, examSnap, pomoSnap, masterySnap] = await Promise.all([
       getDoc(getUserDocRef('calendar')),
       getDoc(getUserDocRef('exams')),
-      getDoc(getUserDocRef('pomodoro'))
+      getDoc(getUserDocRef('pomodoro')),
+      getDoc(getUserDocRef('mastery'))
     ]);
 
-    const hasCloudData = calSnap.exists() || examSnap.exists() || pomoSnap.exists();
+    const hasCloudData = calSnap.exists() || examSnap.exists() || pomoSnap.exists() || masterySnap.exists();
 
     if (!hasCloudData) {
       await pushAllToCloud(false);
@@ -247,45 +257,29 @@ async function startCloudSync() {
       if (calSnap.exists()) applyRemoteCalendar(calSnap.data());
       if (examSnap.exists()) applyRemoteExams(examSnap.data());
       if (pomoSnap.exists()) applyRemotePomo(pomoSnap.data());
+      if (masterySnap.exists()) applyRemoteMastery(masterySnap.data());
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       isApplyingRemote = false;
       refreshAllViewsAfterRemote();
     }
 
+    const listenDoc = (name, applyFn) => onSnapshot(getUserDocRef(name), (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      if (data.clientId === CLIENT_ID) return;
+      isApplyingRemote = true;
+      applyFn(data);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      isApplyingRemote = false;
+      refreshAllViewsAfterRemote();
+      setSyncStatus('● Đã đồng bộ', 'ok');
+    });
+
     unsubscribers.push(
-      onSnapshot(getUserDocRef('calendar'), (snap) => {
-        if (!snap.exists()) return;
-        const data = snap.data();
-        if (data.clientId === CLIENT_ID) return;
-        isApplyingRemote = true;
-        applyRemoteCalendar(data);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        isApplyingRemote = false;
-        refreshAllViewsAfterRemote();
-        setSyncStatus('● Đã đồng bộ', 'ok');
-      }),
-      onSnapshot(getUserDocRef('exams'), (snap) => {
-        if (!snap.exists()) return;
-        const data = snap.data();
-        if (data.clientId === CLIENT_ID) return;
-        isApplyingRemote = true;
-        applyRemoteExams(data);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        isApplyingRemote = false;
-        refreshAllViewsAfterRemote();
-        setSyncStatus('● Đã đồng bộ', 'ok');
-      }),
-      onSnapshot(getUserDocRef('pomodoro'), (snap) => {
-        if (!snap.exists()) return;
-        const data = snap.data();
-        if (data.clientId === CLIENT_ID) return;
-        isApplyingRemote = true;
-        applyRemotePomo(data);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        isApplyingRemote = false;
-        refreshAllViewsAfterRemote();
-        setSyncStatus('● Đã đồng bộ', 'ok');
-      })
+      listenDoc('calendar', applyRemoteCalendar),
+      listenDoc('exams', applyRemoteExams),
+      listenDoc('pomodoro', applyRemotePomo),
+      listenDoc('mastery', applyRemoteMastery)
     );
 
     setSyncStatus('● Đã đồng bộ', 'ok');
@@ -313,6 +307,12 @@ function applyRemoteExams(data) {
 
 function applyRemotePomo(data) {
   if (data.pomodoro) state.pomodoro = data.pomodoro;
+}
+
+function applyRemoteMastery(data) {
+  if (Array.isArray(data.mastery) && data.mastery.length) {
+    state.mastery = data.mastery;
+  }
 }
 
 function hookSaveState() {
@@ -347,7 +347,6 @@ function initMobileNavigation() {
   document.body.appendChild(menuBtn);
 
   const syncMenuFabVisibility = (tabName) => {
-    // Tab Pomodoro đã có sẵn nút ☰ riêng ở góc trên trái
     menuBtn.classList.toggle('hidden', tabName === 'pomodoro');
   };
 
@@ -391,7 +390,6 @@ function initMobileCalendarSync() {
     }, { passive: true });
   });
 
-  // Tự động cuộn ngang tới cột Hôm nay khi mở trên điện thoại
   if (window.innerWidth <= 960) {
     setTimeout(() => {
       const todayCol = gridScroll.querySelector('.cal-col.today-col');
