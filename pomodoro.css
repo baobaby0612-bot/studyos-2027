@@ -576,8 +576,9 @@
 .pomo-challenge-pop {
   position: fixed;
   z-index: 290;
-  min-width: 310px;
-  background: rgba(17, 18, 24, 0.94);
+  width: 340px;
+  max-width: calc(100vw - 88px);
+  background: rgba(17, 18, 24, 0.96);
   backdrop-filter: blur(18px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 18px;
@@ -586,20 +587,95 @@
   animation: pomoSlideInLeft 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.pomo-ch-pop-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 10px; }
-.pomo-ch-pop-left { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700; color: #f8fafc; }
+.pomo-ch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.pomo-ch-item {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 13px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pomo-ch-item.is-done {
+  background: rgba(129, 201, 149, 0.08);
+  border-color: rgba(129, 201, 149, 0.28);
+}
+
+.pomo-ch-pop-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pomo-ch-pop-left { display: flex; align-items: flex-start; gap: 9px; min-width: 0; }
+.pomo-ch-pop-icon { font-size: 16px; line-height: 1.25; flex-shrink: 0; }
+.pomo-ch-pop-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pomo-ch-pop-title { font-size: 14px; font-weight: 700; color: #f8fafc; line-height: 1.3; }
+.pomo-ch-pop-sub { font-size: 12px; color: var(--text-muted); }
+.pomo-ch-item.is-done .pomo-ch-pop-title { color: #81c995; }
+
+.pomo-ch-bar {
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.pomo-ch-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #9f85f7, #c4b5fd);
+  transition: width 0.25s ease;
+}
+
+.pomo-ch-item.is-done .pomo-ch-bar-fill {
+  background: #81c995;
+}
+
 .pomo-giveup-btn {
-  padding: 8px 14px;
-  border-radius: 11px;
+  padding: 6px 11px;
+  border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.08);
   color: #d4d8e4;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  flex-shrink: 0;
 }
 .pomo-giveup-btn:hover { background: rgba(242, 139, 130, 0.2); color: var(--danger); border-color: rgba(242, 139, 130, 0.4); }
+
+.pomo-ch-add-btn {
+  width: 100%;
+  margin-top: 12px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px dashed rgba(160, 132, 248, 0.48);
+  background: rgba(160, 132, 248, 0.12);
+  color: #d8ccff;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s;
+}
+.pomo-ch-add-btn:hover {
+  background: rgba(160, 132, 248, 0.24);
+  border-color: rgba(160, 132, 248, 0.8);
+  color: #ffffff;
+}
 
 /* LEFT SLIDE-IN DRAWER (SETTINGS, AESTHETICS, AND FOCUS STREAK) */
 .pomo-drawer-backdrop {

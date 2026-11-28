@@ -367,19 +367,77 @@
     return getCurrentExamPreset().minutes;
   }
 
-  function checkTodayChallengeCompletion() {
+  function getDayChallenges(iso) {
     const p = ensurePomoState();
-    const iso = getTodayISO();
-    const ch = p.challenges[iso];
-    if (!ch || !ch.accepted || ch.completed || ch.gaveUp) return;
+    const raw = p.challenges?.[iso];
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'object') {
+      return [{
+        id: raw.id || `ch_legacy_${iso}`,
+        targetSeconds: raw.targetSeconds || 0,
+        startSeconds: typeof raw.startSeconds === 'number' ? raw.startSeconds : 0,
+        accepted: !!raw.accepted,
+        completed: !!raw.completed,
+        gaveUp: !!raw.gaveUp,
+        createdAt: raw.createdAt || 0
+      }];
+    }
+    return [];
+  }
 
-    if (getTodayFocusedSeconds() >= ch.targetSeconds) {
-      ch.completed = true;
+  function ensureDayChallengesArray(iso) {
+    const p = ensurePomoState();
+    const raw = p.challenges?.[iso];
+    if (Array.isArray(raw)) return raw;
+    if (raw && typeof raw === 'object') {
+      p.challenges[iso] = getDayChallenges(iso);
+      return p.challenges[iso];
+    }
+    p.challenges[iso] = [];
+    return p.challenges[iso];
+  }
+
+  function getChallengeProgressSeconds(ch, todayFocusedSec = getTodayFocusedSeconds()) {
+    const start = typeof ch.startSeconds === 'number' ? ch.startSeconds : 0;
+    return Math.max(0, todayFocusedSec - start);
+  }
+
+  function getChallengeRemainingSeconds(ch, todayFocusedSec = getTodayFocusedSeconds()) {
+    return Math.max(0, (ch.targetSeconds || 0) - getChallengeProgressSeconds(ch, todayFocusedSec));
+  }
+
+  function checkTodayChallengeCompletion() {
+    const iso = getTodayISO();
+    const list = ensureDayChallengesArray(iso);
+    if (!list.length) return;
+
+    const todaySec = getTodayFocusedSeconds();
+    let newlyCompleted = 0;
+
+    list.forEach(ch => {
+      if (!ch || !ch.accepted || ch.completed || ch.gaveUp) return;
+      if (getChallengeProgressSeconds(ch, todaySec) >= ch.targetSeconds) {
+        ch.completed = true;
+        ch.completedAt = Date.now();
+        newlyCompleted++;
+      }
+    });
+
+    if (newlyCompleted > 0) {
       saveState();
       playSoftAlarm();
       launchCelebrationConfetti();
-      showToast('🎉 Chúc mừng! Bạn đã hoàn thành Today\'s Challenge hôm nay!');
-      sendDesktopNotification('Hoàn thành Today\'s Challenge!', 'Tuyệt vời! Bạn đã đạt đủ thời gian tập trung mục tiêu hôm nay.');
+      const msg = newlyCompleted > 1
+        ? `🎉 Chúc mừng! Bạn vừa hoàn thành ${newlyCompleted} Today's Challenges!`
+        : '🎉 Chúc mừng! Bạn đã hoàn thành Today\'s Challenge!';
+      showToast(msg);
+      sendDesktopNotification(
+        'Hoàn thành Today\'s Challenge!',
+        newlyCompleted > 1
+          ? `Tuyệt vời! Bạn vừa hoàn thành ${newlyCompleted} thử thách tập trung hôm nay.`
+          : 'Tuyệt vời! Bạn đã đạt đủ thời gian tập trung mục tiêu.'
+      );
       updateRailBadges();
     }
   }
@@ -459,7 +517,6 @@
   }
 
   function updateRailBadges() {
-    const p = ensurePomoState();
     const { current } = computeStreaks();
     const streakEl = document.getElementById('pomo-rail-streak-num');
     if (streakEl) streakEl.textContent = String(current);
@@ -468,23 +525,26 @@
     const chSub = document.getElementById('pomo-rail-challenge-sub');
     if (!chBtn || !chSub) return;
 
-    const ch = p.challenges[getTodayISO()];
+    const visible = getDayChallenges(getTodayISO()).filter(c => c.accepted && !c.gaveUp);
+    const activeList = visible.filter(c => !c.completed);
+    const doneList = visible.filter(c => c.completed);
+
     chBtn.classList.remove('active', 'challenge-done');
 
-    if (ch && ch.accepted && !ch.gaveUp) {
-      if (ch.completed) {
-        chBtn.classList.add('challenge-done');
-        chSub.textContent = '✓';
-        chSub.classList.remove('hidden');
-      } else {
-        const leftSec = Math.max(0, ch.targetSeconds - getTodayFocusedSeconds());
-        const leftMins = Math.max(1, Math.ceil(leftSec / 60));
-        const h = Math.floor(leftMins / 60);
-        const m = leftMins % 60;
-        chBtn.classList.add('active');
-        chSub.textContent = h > 0 ? (m > 0 ? `${h}h${m}` : `${h}h`) : `${m}m`;
-        chSub.classList.remove('hidden');
-      }
+    if (activeList.length > 0) {
+      const todaySec = getTodayFocusedSeconds();
+      const minLeftSec = Math.min(...activeList.map(c => getChallengeRemainingSeconds(c, todaySec)));
+      const leftMins = Math.max(1, Math.ceil(minLeftSec / 60));
+      const h = Math.floor(leftMins / 60);
+      const m = leftMins % 60;
+      const timeTxt = h > 0 ? (m > 0 ? `${h}h${m}` : `${h}h`) : `${m}m`;
+      chBtn.classList.add('active');
+      chSub.textContent = activeList.length > 1 ? `${activeList.length}·${timeTxt}` : timeTxt;
+      chSub.classList.remove('hidden');
+    } else if (doneList.length > 0) {
+      chBtn.classList.add('challenge-done');
+      chSub.textContent = doneList.length > 1 ? `✓${doneList.length}` : '✓';
+      chSub.classList.remove('hidden');
     } else {
       chSub.textContent = '';
       chSub.classList.add('hidden');
@@ -812,60 +872,13 @@
     document.querySelectorAll('.pomo-dynamic-overlay').forEach(el => el.remove());
   }
 
-  // 1. TODAY'S CHALLENGE
-  function openChallengeUI(anchorBtn) {
+  // 1. TODAY'S CHALLENGE (Hỗ trợ nhiều challenge mỗi ngày, tính tiến độ từ lúc Accept)
+  function openChallengeCreateModal() {
     closePomoOverlays();
-    const p = ensurePomoState();
     const iso = getTodayISO();
-    const ch = p.challenges[iso];
-
-    if (ch && ch.accepted && !ch.gaveUp) {
-      const leftSec = Math.max(0, ch.targetSeconds - getTodayFocusedSeconds());
-      const leftLabel = ch.completed
-        ? 'Challenge completed! 🎉'
-        : `${formatDurationShort(leftSec)} of focus left`;
-
-      const pop = document.createElement('div');
-      pop.className = 'pomo-challenge-pop pomo-dynamic-overlay';
-      const rect = anchorBtn.getBoundingClientRect();
-      pop.style.left = `${rect.right + 14}px`;
-      pop.style.top = `${Math.max(20, rect.top - 12)}px`;
-
-      pop.innerHTML = `
-        <div class="pomo-ch-eyebrow">
-          <span>TODAY'S CHALLENGE</span>
-          <button type="button" class="btn-icon" style="width:24px;height:24px;font-size:12px;" data-close-ch-pop>✕</button>
-        </div>
-        <div class="pomo-ch-pop-row">
-          <div class="pomo-ch-pop-left">
-            <span>🏆</span>
-            <span>${leftLabel}</span>
-          </div>
-          ${ch.completed ? '' : `<button type="button" class="pomo-giveup-btn" id="btn-ch-giveup">Give up</button>`}
-        </div>
-      `;
-      document.body.appendChild(pop);
-
-      pop.addEventListener('click', (e) => e.stopPropagation());
-      pop.querySelector('[data-close-ch-pop]').addEventListener('click', closePomoOverlays);
-      pop.querySelector('#btn-ch-giveup')?.addEventListener('click', async () => {
-        const ok = await askConfirm({
-          title: 'Từ bỏ thử thách hôm nay?',
-          message: 'Bạn có chắc muốn dừng Today\'s Challenge hôm nay không?',
-          confirmText: 'Give up',
-          danger: true
-        });
-        if (!ok) return;
-        ch.gaveUp = true;
-        saveState();
-        closePomoOverlays();
-        updateRailBadges();
-        showToast('Đã hủy thử thách hôm nay.');
-      });
-      return;
-    }
-
     const todayName = EN_DAYS[new Date().getDay()];
+    const existingCount = getDayChallenges(iso).filter(c => c.accepted && !c.gaveUp).length;
+
     const backdrop = document.createElement('div');
     backdrop.className = 'pomo-overlay-backdrop pomo-dynamic-overlay';
 
@@ -876,10 +889,12 @@
     const renderPicker = () => {
       card.innerHTML = `
         <div class="pomo-ch-eyebrow">
-          <span>TODAY'S CHALLENGE</span>
+          <span>TODAY'S CHALLENGE ${existingCount > 0 ? `#${existingCount + 1}` : ''}</span>
           <button type="button" class="btn-icon" data-close-overlay>✕</button>
         </div>
-        <div class="pomo-ch-heading">Today ${todayName}, I want to focus for a total of...</div>
+        <div class="pomo-ch-heading">${existingCount > 0
+          ? `Add another focus challenge for ${todayName}...`
+          : `Today ${todayName}, I want to focus for...`}</div>
 
         <div class="pomo-ch-steppers">
           <div class="pomo-stepper-pill">
@@ -902,7 +917,7 @@
         </div>
 
         <div style="font-size:12.5px;color:var(--text-muted);line-height:1.45;">
-          All your focus & exam sessions today add up. Breaks and pauses don't count.
+          Focus & exam time earned from now will count toward this challenge. Breaks and pauses don't count.
         </div>
 
         <button type="button" class="pomo-ch-accept-btn" id="btn-ch-accept">
@@ -934,24 +949,122 @@
         const totalMin = pomoRuntime.challengeDraftH * 60 + pomoRuntime.challengeDraftM;
         if (totalMin <= 0) return showToast('Hãy chọn ít nhất 5 phút cho thử thách!');
         const targetSec = totalMin * 60;
-        const alreadyDone = getTodayFocusedSeconds() >= targetSec;
-        p.challenges[iso] = { targetSeconds: targetSec, accepted: true, completed: alreadyDone, gaveUp: false };
+        const list = ensureDayChallengesArray(iso);
+        list.push({
+          id: `ch_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          targetSeconds: targetSec,
+          startSeconds: getTodayFocusedSeconds(),
+          accepted: true,
+          completed: false,
+          gaveUp: false,
+          createdAt: Date.now()
+        });
         saveState();
         closePomoOverlays();
         updateRailBadges();
-        if (alreadyDone) {
-          playSoftAlarm();
-          launchCelebrationConfetti();
-          showToast('🎉 Bạn đã vượt mục tiêu thử thách hôm nay!');
-        } else {
-          showToast(`Đã nhận thử thách: ${formatDurationShort(targetSec)} hôm nay!`);
-        }
+        showToast(`Đã nhận thử thách mới: ${formatDurationShort(targetSec)}!`);
       });
     };
 
     backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closePomoOverlays(); });
     document.body.appendChild(backdrop);
     renderPicker();
+  }
+
+  function openChallengeUI(anchorBtn) {
+    closePomoOverlays();
+    const iso = getTodayISO();
+    const visible = getDayChallenges(iso).filter(c => c.accepted && !c.gaveUp);
+
+    if (!visible.length) {
+      openChallengeCreateModal();
+      return;
+    }
+
+    const pop = document.createElement('div');
+    pop.className = 'pomo-challenge-pop pomo-dynamic-overlay';
+    const rect = anchorBtn.getBoundingClientRect();
+    pop.style.left = `${rect.right + 14}px`;
+    pop.style.top = `${Math.max(20, rect.top - 12)}px`;
+
+    const renderPopover = () => {
+      const currentList = getDayChallenges(iso).filter(c => c.accepted && !c.gaveUp);
+      if (!currentList.length) {
+        closePomoOverlays();
+        return;
+      }
+      const todaySec = getTodayFocusedSeconds();
+      const doneCount = currentList.filter(c => c.completed).length;
+
+      const itemsHtml = currentList.map((ch, idx) => {
+        const progSec = ch.completed ? ch.targetSeconds : getChallengeProgressSeconds(ch, todaySec);
+        const leftSec = ch.completed ? 0 : getChallengeRemainingSeconds(ch, todaySec);
+        const pct = ch.targetSeconds > 0 ? Math.min(100, Math.round((progSec / ch.targetSeconds) * 100)) : 100;
+        const targetTxt = formatDurationShort(ch.targetSeconds);
+        const titleTxt = ch.completed
+          ? `#${idx + 1} · Hoàn thành! 🎉`
+          : `#${idx + 1} · Còn ${formatDurationShort(leftSec)}`;
+        const subTxt = ch.completed
+          ? `Mục tiêu ${targetTxt} · 100%`
+          : `Đã tập trung ${formatDurationShort(progSec)} / ${targetTxt} (${pct}%)`;
+
+        return `
+          <div class="pomo-ch-item ${ch.completed ? 'is-done' : ''}">
+            <div class="pomo-ch-pop-row">
+              <div class="pomo-ch-pop-left">
+                <span class="pomo-ch-pop-icon">${ch.completed ? '✅' : '🏆'}</span>
+                <div class="pomo-ch-pop-info">
+                  <div class="pomo-ch-pop-title">${titleTxt}</div>
+                  <div class="pomo-ch-pop-sub">${subTxt}</div>
+                </div>
+              </div>
+              ${ch.completed ? '' : `<button type="button" class="pomo-giveup-btn" data-giveup-ch="${ch.id}">Give up</button>`}
+            </div>
+            <div class="pomo-ch-bar">
+              <div class="pomo-ch-bar-fill" style="width:${pct}%;"></div>
+            </div>
+          </div>`;
+      }).join('');
+
+      pop.innerHTML = `
+        <div class="pomo-ch-eyebrow">
+          <span>TODAY'S CHALLENGES (${doneCount}/${currentList.length})</span>
+          <button type="button" class="btn-icon" style="width:24px;height:24px;font-size:12px;" data-close-ch-pop>✕</button>
+        </div>
+        <div class="pomo-ch-list">${itemsHtml}</div>
+        <button type="button" class="pomo-ch-add-btn" id="btn-ch-add-more">
+          <span>＋</span><span>Thêm challenge mới</span>
+        </button>
+      `;
+
+      pop.querySelector('[data-close-ch-pop]').addEventListener('click', closePomoOverlays);
+      pop.querySelector('#btn-ch-add-more').addEventListener('click', () => {
+        openChallengeCreateModal();
+      });
+      pop.querySelectorAll('[data-giveup-ch]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const chId = btn.dataset.giveupCh;
+          const ok = await askConfirm({
+            title: 'Từ bỏ thử thách này?',
+            message: 'Bạn có chắc muốn dừng thử thách này không?',
+            confirmText: 'Give up',
+            danger: true
+          });
+          if (!ok) return;
+          const arr = ensureDayChallengesArray(iso);
+          const target = arr.find(c => c.id === chId);
+          if (target) target.gaveUp = true;
+          saveState();
+          updateRailBadges();
+          showToast('Đã hủy thử thách.');
+          renderPopover();
+        });
+      });
+    };
+
+    pop.addEventListener('click', (e) => e.stopPropagation());
+    document.body.appendChild(pop);
+    renderPopover();
   }
 
   // 2. FOCUS STREAK DRAWER
@@ -1000,11 +1113,15 @@
 
       let chAccepted = 0;
       let chCompleted = 0;
-      Object.entries(p.challenges || {}).forEach(([iso, ch]) => {
-        if (iso.startsWith(prefix) && ch.accepted) {
-          chAccepted++;
-          if (ch.completed) chCompleted++;
-        }
+      Object.entries(p.challenges || {}).forEach(([iso, raw]) => {
+        if (!iso.startsWith(prefix)) return;
+        const items = Array.isArray(raw) ? raw : (raw && typeof raw === 'object' ? [raw] : []);
+        items.forEach(ch => {
+          if (ch && ch.accepted) {
+            chAccepted++;
+            if (ch.completed) chCompleted++;
+          }
+        });
       });
 
       const { current, best } = computeStreaks();

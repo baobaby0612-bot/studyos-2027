@@ -1918,6 +1918,29 @@ function renderAnalytics() {
     });
     const groups = [...groupsMap.values()];
 
+    // Plugin vẽ trực tiếp số điểm trên đỉnh mỗi cột
+    const barValueLabelPlugin = {
+      id: 'barValueLabelPlugin',
+      afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        ctx.save();
+        ctx.font = "600 11px 'JetBrains Mono', monospace";
+        ctx.fillStyle = '#eef0f6';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        chart.data.datasets.forEach((ds, dsIdx) => {
+          const meta = chart.getDatasetMeta(dsIdx);
+          if (meta.hidden) return;
+          meta.data.forEach((barEl, idx) => {
+            const val = ds.data[idx];
+            if (val === null || val === undefined || Number.isNaN(Number(val))) return;
+            ctx.fillText(Number(val).toFixed(2), barEl.x, barEl.y - 5);
+          });
+        });
+        ctx.restore();
+      }
+    };
+
     if (analyticsChartMode === 'split') {
       trendGrid.classList.toggle('single-col', groups.length === 1);
       trendGrid.innerHTML = groups.map((g, i) => {
@@ -1947,23 +1970,27 @@ function renderAnalytics() {
         const ctx = document.getElementById(`trend-canvas-${i}`);
         if (!ctx) return;
         const chart = new Chart(ctx, {
-          type: 'line',
+          type: 'bar',
           data: {
             labels: g.exams.map((e, idx) => `#${idx + 1} (${e.date.slice(5)})`),
             datasets: [{
               label: g.cat.name,
               data: g.exams.map(e => Number(e.totalScore)),
+              backgroundColor: g.cat.color + 'cc',
+              hoverBackgroundColor: g.cat.color,
               borderColor: g.cat.color,
-              backgroundColor: g.cat.color + '24',
-              fill: true,
-              tension: 0.3,
-              pointRadius: 5,
-              pointHoverRadius: 7
+              borderWidth: 1.5,
+              borderRadius: { topLeft: 6, topRight: 6 },
+              borderSkipped: 'bottom',
+              maxBarThickness: 46,
+              barPercentage: 0.65,
+              categoryPercentage: 0.72
             }]
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
+            layout: { padding: { top: 20 } },
             plugins: {
               legend: { display: false },
               tooltip: {
@@ -1974,15 +2001,16 @@ function renderAnalytics() {
               }
             },
             scales: {
-              x: { ticks: { color: '#9398a8' }, grid: { color: '#242632' } },
+              x: { ticks: { color: '#9398a8' }, grid: { display: false } },
               y: { min: 0, max: subInfo.maxScore, ticks: { color: '#9398a8' }, grid: { color: '#242632' } }
             }
-          }
+          },
+          plugins: [barValueLabelPlugin]
         });
         trendChartInstances.push(chart);
       });
     } else {
-      // Combined comparison mode
+      // Combined comparison mode (grouped bar chart)
       trendGrid.classList.add('single-col');
       const maxLen = Math.max(...groups.map(g => g.exams.length));
       const labels = Array.from({ length: maxLen }, (_, i) => `Đề #${i + 1}`);
@@ -2004,23 +2032,25 @@ function renderAnalytics() {
       const ctx = document.getElementById('trend-canvas-combined');
       if (ctx) {
         const chart = new Chart(ctx, {
-          type: 'line',
+          type: 'bar',
           data: {
             labels,
             datasets: groups.map(g => ({
               label: `${g.cat.name} (${g.exams.length})`,
               data: g.exams.map(e => Number(e.totalScore)),
+              backgroundColor: g.cat.color + 'cc',
+              hoverBackgroundColor: g.cat.color,
               borderColor: g.cat.color,
-              backgroundColor: g.cat.color + '20',
-              fill: false,
-              tension: 0.3,
-              pointRadius: 5,
-              pointHoverRadius: 7
+              borderWidth: 1.5,
+              borderRadius: { topLeft: 5, topRight: 5 },
+              borderSkipped: 'bottom',
+              maxBarThickness: 38
             }))
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
+            layout: { padding: { top: 20 } },
             plugins: {
               legend: { labels: { color: '#eef0f6' } },
               tooltip: {
@@ -2029,15 +2059,17 @@ function renderAnalytics() {
                     const dsIdx = items[0]?.datasetIndex;
                     const ptIdx = items[0]?.dataIndex;
                     return groups[dsIdx]?.exams[ptIdx]?.name || '';
-                  }
+                  },
+                  label: (item) => `${item.dataset.label}: ${Number(item.raw).toFixed(2)} / ${subInfo.maxScore}`
                 }
               }
             },
             scales: {
-              x: { ticks: { color: '#9398a8' }, grid: { color: '#242632' } },
+              x: { ticks: { color: '#9398a8' }, grid: { display: false } },
               y: { min: 0, max: subInfo.maxScore, ticks: { color: '#9398a8' }, grid: { color: '#242632' } }
             }
-          }
+          },
+          plugins: [barValueLabelPlugin]
         });
         trendChartInstances.push(chart);
       }
