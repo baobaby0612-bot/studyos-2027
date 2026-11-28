@@ -269,7 +269,7 @@
     const m = music();
     const it = currentItem();
     if (!m.library.length) return;
-    if (it && it.type === 'playlist' && player) {
+    if (it && it.type === 'playlist' && player && typeof player.nextVideo === 'function') {
       dir > 0 ? player.nextVideo() : player.previousVideo();
       return;
     }
@@ -370,8 +370,7 @@
     const m = music();
     const it = currentItem();
     const typedValue = panelEl.querySelector('#music-url')?.value || '';
-    const panelScroll = panelEl.scrollTop;
-    panelEl.querySelectorAll('[data-tracks]').forEach(el => { scrollMem[el.dataset.tracks] = el.scrollTop; });
+    const libScroll = panelEl.querySelector('.music-lib')?.scrollTop || 0;
     const curVid = currentVideoId();
 
     const lib = m.library.length
@@ -412,8 +411,8 @@
       <div class="music-vol"><input id="music-volume" type="range" min="0" max="100" value="${m.volume}" /></div>
       <div class="music-lib">${lib}</div>
     `;
-    panelEl.scrollTop = panelScroll;
-    panelEl.querySelectorAll('[data-tracks]').forEach(el => { if (scrollMem[el.dataset.tracks]) el.scrollTop = scrollMem[el.dataset.tracks]; });
+    const libEl = panelEl.querySelector('.music-lib');
+    if (libEl) libEl.scrollTop = libScroll;
     bindPanel();
   }
 
@@ -486,7 +485,7 @@
   function positionPanel() {
     if (!panelEl || !anchorBtn) return;
     const r = anchorBtn.getBoundingClientRect();
-    const w = panelEl.offsetWidth || 330;
+    const w = panelEl.offsetWidth || 400;
     let left = Math.min(Math.max(8, r.left), window.innerWidth - w - 8);
     panelEl.style.left = left + 'px';
     panelEl.style.bottom = Math.max(8, window.innerHeight - r.top + 10) + 'px';
@@ -494,6 +493,8 @@
 
   function onDocClick(e) {
     if (!panelEl) return;
+    // phần tử vừa bị render lại (đã gỡ khỏi DOM) thì không tính là click ra ngoài
+    if (!e.target.isConnected) return;
     if (panelEl.contains(e.target) || (anchorBtn && anchorBtn.contains(e.target))) return;
     closePanel();
   }
@@ -503,6 +504,7 @@
     if (!panelEl) {
       panelEl = document.createElement('div');
       panelEl.className = 'music-panel';
+      panelEl.addEventListener('click', (e) => e.stopPropagation());
       document.body.appendChild(panelEl);
       setTimeout(() => document.addEventListener('click', onDocClick), 0);
       window.addEventListener('resize', positionPanel);

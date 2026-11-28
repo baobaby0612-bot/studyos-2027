@@ -1148,3 +1148,25 @@
   border-radius: 10px; padding: 0 14px; cursor: pointer; font-size: 12.5px;
 }
 .music-add button:hover { background: rgba(159,133,247,0.35); }
+
+/* ===== v3: panel 1 thanh cuộn, lớn hơn; nút trong suốt bo tròn ===== */
+.music-panel {
+  width: 400px; max-width: calc(100vw - 24px); max-height: 80vh;
+  overflow: hidden; display: flex; flex-direction: column;
+}
+.music-panel > * { flex-shrink: 0; }
+.music-panel .music-lib { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; }
+.music-tracks { max-height: none; overflow: visible; }
+.music-bar {
+  background: transparent; border: none; border-radius: 999px;
+  height: 42px; gap: 4px; padding: 2px;
+}
+.music-bar button, .music-bar button.main {
+  background: transparent; border: none; border-left: none; border-radius: 999px;
+}
+.music-bar button:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.music-bar button.on { background: transparent; color: #b8a5fb; }
+.music-bar button.on:hover { background: rgba(159,133,247,0.14); color: #d0c3ff; }
+.music-bar button.main { flex: 1.15; color: #b095fc; }
+.music-bar button.main:hover { background: rgba(159,133,247,0.14); color: #c9b8ff; }
+.music-bar button.main svg { width: 22px; height: 22px; }
