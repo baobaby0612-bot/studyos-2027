@@ -165,6 +165,7 @@
       saveState();
     }
     const p = state.pomodoro;
+    if (!p.music) p.music = { library: [], currentLibId: null, currentIndex: 0, volume: 60, shuffle: false, loop: 'all' };
     if (!p.dailyLogs) p.dailyLogs = {};
     if (!p.challenges) p.challenges = {};
     if (p.settings.alarmEnabled === undefined) p.settings.alarmEnabled = true;
@@ -1891,7 +1892,7 @@
           </div>
 
           <div class="pomo-dock">
-            <button type="button" class="pomo-dock-btn" data-placeholder-btn="Music" title="Nhạc nền (sắp thêm)">
+            <button type="button" class="pomo-dock-btn" id="btn-pomo-music" title="Nhạc nền YouTube">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
               </svg>
@@ -1924,9 +1925,17 @@
 
         <aside class="pomo-tasks-panel" id="pomo-tasks-panel"></aside>
       </div>
+
+      <div class="pomo-now-playing" id="pomo-now-playing"><div class="pomo-now-track"><span id="pomo-now-text"></span></div></div>
+      <div class="pomo-zen-reveal" id="pomo-zen-reveal">
+        <button type="button" class="pomo-zen-arrow" id="btn-pomo-zen-reveal" title="Hiện lại menu">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"/></svg>
+        </button>
+      </div>
     `;
 
     bindPomoStageEvents();
+    setupZenMode();
     setupImmersiveSidebarSync();
     resetPomoToMode('focus');
     renderPomoTasksPanel();
@@ -2168,6 +2177,46 @@
     `;
   }
 
+  // ================= ZEN MODE (tự ẩn UI khi đang chạy timer) =================
+  const ZEN_IDLE_MS = 5000;
+  let zenTimerId = null;
+  function setupZenMode() {
+    const view = document.getElementById('view-pomodoro');
+    if (!view) return;
+    if (zenTimerId) clearInterval(zenTimerId);
+    let lastActive = Date.now();
+    let wasRunning = false;
+    const setZen = (on) => {
+      view.classList.toggle('pomo-zen', on);
+      if (on) closeAllPopovers();
+      if (on && window.StudyMusic) window.StudyMusic.closePanel();
+      window.dispatchEvent(new CustomEvent('pomo:zen', { detail: { on } }));
+    };
+    const poke = () => { if (!view.classList.contains('pomo-zen')) lastActive = Date.now(); };
+    ['mousemove', 'mousedown', 'keydown', 'touchstart', 'wheel', 'input'].forEach(ev =>
+      view.addEventListener(ev, poke, { passive: true }));
+    // Popover/panel nhạc nằm ngoài view -> cũng tính là hoạt động
+    document.addEventListener('mousemove', (e) => {
+      if (e.target.closest && e.target.closest('.music-panel')) poke();
+    }, { passive: true });
+    document.getElementById('btn-pomo-zen-reveal').addEventListener('click', (e) => {
+      e.stopPropagation();
+      lastActive = Date.now();
+      setZen(false);
+    });
+    zenTimerId = setInterval(() => {
+      const active = view.classList.contains('active');
+      const running = active && pomoRuntime.running;
+      if (!running) {
+        if (view.classList.contains('pomo-zen')) setZen(false);
+        wasRunning = false;
+        return;
+      }
+      if (!wasRunning) { wasRunning = true; lastActive = Date.now(); }
+      if (!view.classList.contains('pomo-zen') && Date.now() - lastActive >= ZEN_IDLE_MS) setZen(true);
+    }, 500);
+  }
+
   // ================= EVENT BINDINGS =================
   function bindPomoStageEvents() {
     document.getElementById('btn-pomo-toggle-sidebar').addEventListener('click', () => {
@@ -2195,6 +2244,12 @@
     document.getElementById('btn-pomo-settings').addEventListener('click', (e) => {
       e.stopPropagation();
       openSettingsDrawer();
+    });
+
+    document.getElementById('btn-pomo-music')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (window.StudyMusic) window.StudyMusic.toggle(e.currentTarget);
+      else showToast('Trình phát nhạc chưa sẵn sàng.');
     });
 
     document.querySelectorAll('[data-placeholder-btn]').forEach(btn => {

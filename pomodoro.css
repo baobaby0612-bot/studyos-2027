@@ -1036,3 +1036,85 @@
   .pomo-tasks-panel { width: calc(100% - 24px); margin: 12px; min-height: 440px; }
   .pomo-tasks-panel.collapsed { height: 0; min-height: 0; margin: 0; }
 }
+/* ===================== ZEN MODE (tự ẩn UI khi đang chạy) ===================== */
+.pomo-left-rail, .pomo-dock, .pomo-quick-actions, .pomo-stage-top {
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+#view-pomodoro.pomo-zen .pomo-left-rail { opacity: 0; transform: translateX(-24px); pointer-events: none; }
+#view-pomodoro.pomo-zen .pomo-stage-top { opacity: 0; transform: translateY(-16px); pointer-events: none; }
+#view-pomodoro.pomo-zen .pomo-dock { opacity: 0; transform: translateY(24px); pointer-events: none; }
+#view-pomodoro.pomo-zen .pomo-quick-actions { opacity: 0; pointer-events: none; }
+#view-pomodoro.pomo-zen .pomo-tasks-panel {
+  width: 0; margin-right: 0; opacity: 0; border-color: transparent; pointer-events: none;
+}
+
+/* Mũi tên ở đáy */
+.pomo-zen-reveal {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 64px; z-index: 40;
+  display: none; align-items: flex-end; justify-content: center; padding-bottom: 10px;
+}
+#view-pomodoro.pomo-zen .pomo-zen-reveal { display: flex; }
+.pomo-zen-arrow {
+  width: 44px; height: 30px; border-radius: 14px; cursor: pointer;
+  background: rgba(16, 17, 23, 0.75); backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12); color: #e5e7f0;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transform: translateY(12px); transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.pomo-zen-reveal:hover .pomo-zen-arrow, .pomo-zen-arrow:focus-visible { opacity: 1; transform: translateY(0); }
+@media (hover: none) { .pomo-zen-arrow { opacity: 0.7; transform: none; } }
+
+/* Dòng chữ chạy tên bài hát */
+.pomo-now-playing {
+  position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+  width: min(520px, 80%); overflow: hidden; z-index: 30; pointer-events: none;
+  opacity: 0; transition: opacity 0.5s ease;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+#view-pomodoro.pomo-zen .pomo-now-playing.playing { opacity: 1; }
+.pomo-now-track { display: inline-block; white-space: nowrap; padding-left: 100%; animation: pomo-marquee 16s linear infinite; }
+.pomo-now-track span { font-size: 13px; color: #cfd2e0; letter-spacing: 0.02em; text-shadow: 0 1px 8px rgba(0,0,0,0.8); }
+@keyframes pomo-marquee { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+
+/* ===================== MUSIC PANEL ===================== */
+.music-panel {
+  position: fixed; z-index: 700; width: 330px; max-height: 70vh; overflow-y: auto;
+  background: rgba(20, 21, 29, 0.96); backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55); padding: 14px; color: #e5e7f0; font-size: 13px;
+}
+.music-panel h3 { font-size: 14px; margin: 0 0 10px; display: flex; justify-content: space-between; align-items: center; }
+.music-add { display: flex; gap: 6px; margin-bottom: 8px; }
+.music-add input {
+  flex: 1; min-width: 0; padding: 8px 10px; border-radius: 10px; font-size: 12.5px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #fff;
+}
+.music-add button, .music-ctrl button {
+  background: rgba(159,133,247,0.2); border: 1px solid rgba(159,133,247,0.4); color: #e5e7f0;
+  border-radius: 10px; padding: 0 12px; cursor: pointer; font-size: 12.5px;
+}
+.music-add button:hover, .music-ctrl button:hover { background: rgba(159,133,247,0.35); }
+.music-msg { font-size: 12px; color: #fca5a5; min-height: 0; margin-bottom: 6px; }
+.music-msg.ok { color: #86efac; }
+.music-now { padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.05); margin: 8px 0; font-size: 12.5px; line-height: 1.4; }
+.music-now small { display: block; color: #9ca3b8; margin-top: 2px; }
+.music-ctrl { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; }
+.music-ctrl button { height: 34px; min-width: 38px; padding: 0 10px; }
+.music-ctrl button.main { background: #9f85f7; color: #111; font-weight: 700; min-width: 48px; }
+.music-ctrl button.on { background: rgba(159,133,247,0.5); border-color: #9f85f7; }
+.music-vol { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.music-vol input { flex: 1; accent-color: #9f85f7; }
+.music-lib { display: flex; flex-direction: column; gap: 4px; }
+.music-item {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; cursor: pointer;
+  background: rgba(255,255,255,0.03); border: 1px solid transparent;
+}
+.music-item:hover { background: rgba(255,255,255,0.08); }
+.music-item.active { border-color: rgba(159,133,247,0.55); background: rgba(159,133,247,0.12); }
+.music-item .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.music-item .k { font-size: 10.5px; color: #9ca3b8; }
+.music-item .x { background: none; border: none; color: #9ca3b8; cursor: pointer; font-size: 13px; }
+.music-item .x:hover { color: #f28b82; }
+.music-empty { color: #9ca3b8; text-align: center; padding: 10px 0; font-size: 12px; }
+#yt-player-host { position: fixed; width: 1px; height: 1px; left: -10px; top: -10px; opacity: 0; pointer-events: none; overflow: hidden; }
