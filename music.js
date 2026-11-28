@@ -71,9 +71,11 @@
   }
 
   // ---------- YouTube player ----------
+  let apiPromise = null;
   function loadApi() {
     if (window.YT && window.YT.Player) return Promise.resolve();
-    return new Promise((resolve, reject) => {
+    if (apiPromise) return apiPromise;
+    apiPromise = new Promise((resolve, reject) => {
       const prev = window.onYouTubeIframeAPIReady;
       window.onYouTubeIframeAPIReady = () => { if (prev) prev(); resolve(); };
       const s = document.createElement('script');
@@ -81,6 +83,8 @@
       s.onerror = () => reject(new Error('api'));
       document.head.appendChild(s);
     });
+    apiPromise.catch(() => { apiPromise = null; });
+    return apiPromise;
   }
 
   function ensurePlayer() {
@@ -137,8 +141,105 @@
     step(1, true);
   }
 
+  // ---------- danh sách bài trong playlist ----------
+  let metaPlayer = null;
+  let metaQueue = [];
+  let metaBusy = false;
+  const loadingTitles = new Set();
+  const expanded = new Set();
+  const scrollMem = {};
+  let renderTimer = null;
+  const renderSoon = () => { clearTimeout(renderTimer); renderTimer = setTimeout(renderPanel, 250); };
+
+  function ensureMetaPlayer() {
+    return loadApi().then(() => new Promise((resolve) => {
+      if (metaPlayer) return resolve(metaPlayer);
+      let host = document.getElementById('yt-meta-host');
+      if (!host) {
+        host = document.createElement('div');
+        host.id = 'yt-meta-host';
+        host.style.cssText = 'position:fixed;width:1px;height:1px;left:-10px;top:-10px;opacity:0;pointer-events:none;overflow:hidden';
+        host.innerHTML = '<div id="yt-meta"></div>';
+        document.body.appendChild(host);
+      }
+      metaPlayer = new YT.Player('yt-meta', {
+        height: '1', width: '1',
+        playerVars: { playsinline: 1, controls: 0 },
+        events: {
+          onReady: () => { metaPlayer.mute(); resolve(metaPlayer); },
+          onStateChange: onMetaState
+        }
+      });
+    }));
+  }
+
+  let metaCurrent = null;
+  let metaTimeout = null;
+  function onMetaState(e) {
+    if (!metaCurrent) return;
+    if (e.data === YT.PlayerState.CUED || e.data === YT.PlayerState.PLAYING) {
+      const ids = (metaPlayer.getPlaylist && metaPlayer.getPlaylist()) || [];
+      if (ids.length) finishMeta(ids);
+    }
+  }
+  function finishMeta(ids) {
+    clearTimeout(metaTimeout);
+    const it = metaCurrent;
+    metaCurrent = null;
+    if (it) {
+      const old = new Map((it.items || []).map(x => [x.vid, x.title]));
+      it.items = ids.map(v => ({ vid: v, title: old.get(v) || '' }));
+      persist();
+      fetchTrackTitles(it);
+      renderSoon();
+    }
+    try { metaPlayer.stopVideo(); } catch (e) { /* ignore */ }
+    metaBusy = false;
+    nextMeta();
+  }
+  function nextMeta() {
+    if (metaBusy || !metaQueue.length) return;
+    const it = metaQueue.shift();
+    if (it.items && it.items.length) return nextMeta();
+    metaBusy = true;
+    metaCurrent = it;
+    ensureMetaPlayer().then(() => {
+      metaPlayer.cuePlaylist({ list: it.ytId, listType: 'playlist', index: 0 });
+      metaTimeout = setTimeout(() => {
+        // quá hạn: bỏ qua
+        metaCurrent = null; metaBusy = false; nextMeta();
+      }, 12000);
+    }).catch(() => { metaCurrent = null; metaBusy = false; });
+  }
+  function ensureTracks(it) {
+    if (it.type !== 'playlist') return;
+    if (it.items && it.items.length) { fetchTrackTitles(it); return; }
+    if (!metaQueue.includes(it) && metaCurrent !== it) metaQueue.push(it);
+    nextMeta();
+  }
+  async function fetchTrackTitles(it) {
+    const todo = (it.items || []).filter(x => !x.title && !loadingTitles.has(x.vid));
+    if (!todo.length) return;
+    todo.forEach(x => loadingTitles.add(x.vid));
+    let idx = 0;
+    const worker = async () => {
+      while (idx < todo.length) {
+        const x = todo[idx++];
+        try { x.title = await fetchTitle({ type: 'video', ytId: x.vid }); }
+        catch (e) { x.title = 'Video không khả dụng'; }
+        loadingTitles.delete(x.vid);
+        renderSoon();
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    persist();
+  }
+  function currentVideoId() {
+    try { return player && player.getVideoData ? player.getVideoData().video_id : ''; } catch (e) { return ''; }
+  }
+
   // ---------- phát ----------
-  async function playItem(id) {
+  async function playItem(id, index) {
     const m = music();
     const it = m.library.find(x => x.id === id);
     if (!it) return;
@@ -154,7 +255,7 @@
       return;
     }
     if (it.type === 'playlist') {
-      player.loadPlaylist({ list: it.ytId, listType: 'playlist', index: 0 });
+      player.loadPlaylist({ list: it.ytId, listType: 'playlist', index: index || 0 });
       player.setShuffle(!!m.shuffle);
       player.setLoop(m.loop !== 'off');
     } else {
@@ -220,6 +321,7 @@
     persist();
     setMsg('Đã thêm: ' + item.title, true);
     renderPanel();
+    if (item.type === 'playlist') ensureTracks(item);
     if (!isPlaying) playItem(item.id);
   }
 
@@ -241,39 +343,77 @@
   // ---------- giao diện ----------
   function setMsg(text, ok) { msg = { text, ok }; }
 
+  const IC = {
+    shuffle: '<svg viewBox="0 0 24 24"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>',
+    prev: '<svg viewBox="0 0 24 24"><polygon points="19 20 9 12 19 4 19 20" fill="currentColor"/><line x1="5" y1="19" x2="5" y2="5"/></svg>',
+    next: '<svg viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4" fill="currentColor"/><line x1="19" y1="5" x2="19" y2="19"/></svg>',
+    play: '<svg viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor"/></svg>',
+    pause: '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor"/></svg>',
+    loop: '<svg viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>',
+    loopOne: '<svg viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><path d="M11 10h1v4"/></svg>',
+    chevron: '<svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>'
+  };
+
+  function trackListHtml(x, curVid) {
+    if (!expanded.has(x.id)) return '';
+    if (!x.items || !x.items.length) return '<div class="music-tracks"><div class="music-empty">Đang tải danh sách bài...</div></div>';
+    const rows = x.items.map((t, i) => `
+      <div class="music-track ${t.vid === curVid && x.id === music().currentLibId ? 'active' : ''}" data-track="${x.id}" data-idx="${i}">
+        <span class="n">${i + 1}</span>
+        <span class="t">${esc(t.title || 'Đang tải tên...')}</span>
+      </div>`).join('');
+    return `<div class="music-tracks" data-tracks="${x.id}">${rows}</div>`;
+  }
+
   function renderPanel() {
     if (!panelEl) return;
     const m = music();
     const it = currentItem();
     const typedValue = panelEl.querySelector('#music-url')?.value || '';
+    const panelScroll = panelEl.scrollTop;
+    panelEl.querySelectorAll('[data-tracks]').forEach(el => { scrollMem[el.dataset.tracks] = el.scrollTop; });
+    const curVid = currentVideoId();
+
     const lib = m.library.length
       ? m.library.map(x => `
-          <div class="music-item ${x.id === m.currentLibId ? 'active' : ''}" data-play="${x.id}">
-            <span>${x.type === 'playlist' ? '📃' : '🎵'}</span>
-            <span class="t" title="${esc(x.title)}">${esc(x.title)}</span>
-            <span class="k">${x.type === 'playlist' ? 'Playlist' : 'Video'}</span>
-            <button class="x" data-del="${x.id}" title="Xóa">✕</button>
+          <div class="music-group">
+            <div class="music-item ${x.id === m.currentLibId ? 'active' : ''}" data-play="${x.id}">
+              <span class="t" title="${esc(x.title)}">${esc(x.title)}</span>
+              <span class="k">${x.type === 'playlist' ? (x.items && x.items.length ? x.items.length + ' bài' : 'Playlist') : 'Video'}</span>
+              ${x.type === 'playlist' ? `<button class="x chev ${expanded.has(x.id) ? 'open' : ''}" data-expand="${x.id}" title="Xem danh sách bài">${IC.chevron}</button>` : ''}
+              <button class="x" data-del="${x.id}" title="Xóa">✕</button>
+            </div>
+            ${x.type === 'playlist' ? trackListHtml(x, curVid) : ''}
           </div>`).join('')
       : '<div class="music-empty">Chưa có nhạc. Dán link YouTube ở trên để thêm.</div>';
+
+    let pos = '';
+    if (it && it.type === 'playlist' && it.items && it.items.length) {
+      const i = it.items.findIndex(t => t.vid === curVid);
+      if (i >= 0) pos = ` · ${i + 1}/${it.items.length}`;
+    }
+
     panelEl.innerHTML = `
-      <h3><span>🎧 Nhạc nền</span><span style="cursor:pointer;color:#9ca3b8" data-close>✕</span></h3>
+      <h3><span>Nhạc nền</span><span style="cursor:pointer;color:#9ca3b8" data-close>✕</span></h3>
       <div class="music-add">
         <input id="music-url" type="text" placeholder="Dán link video / playlist YouTube..." value="${esc(typedValue)}" />
         <button id="music-add-btn">Thêm</button>
       </div>
       <div class="music-msg ${msg.ok ? 'ok' : ''}">${esc(msg.text)}</div>
       <div class="music-now">${it ? esc(nowTitle || it.title) : 'Chưa chọn bài nào'}
-        <small>${it ? (isPlaying ? 'Đang phát' : 'Tạm dừng') : ''}</small></div>
-      <div class="music-ctrl">
-        <button id="music-shuffle" class="${m.shuffle ? 'on' : ''}" title="Phát ngẫu nhiên">🔀</button>
-        <button id="music-prev" title="Bài trước">⏮</button>
-        <button id="music-play" class="main" title="Phát / Tạm dừng">${isPlaying ? '⏸' : '▶'}</button>
-        <button id="music-next" title="Bài sau">⏭</button>
-        <button id="music-loop" class="${m.loop !== 'off' ? 'on' : ''}" title="Lặp lại">${m.loop === 'one' ? '🔂' : '🔁'}</button>
+        <small>${it ? (isPlaying ? 'Đang phát' : 'Tạm dừng') + esc(pos) : ''}</small></div>
+      <div class="music-bar">
+        <button id="music-shuffle" class="${m.shuffle ? 'on' : ''}" title="Phát ngẫu nhiên">${IC.shuffle}</button>
+        <button id="music-prev" title="Bài trước">${IC.prev}</button>
+        <button id="music-play" class="main" title="Phát / Tạm dừng">${isPlaying ? IC.pause : IC.play}</button>
+        <button id="music-next" title="Bài sau">${IC.next}</button>
+        <button id="music-loop" class="${m.loop !== 'off' ? 'on' : ''}" title="Lặp lại">${m.loop === 'one' ? IC.loopOne : IC.loop}</button>
       </div>
-      <div class="music-vol"><span>🔈</span><input id="music-volume" type="range" min="0" max="100" value="${m.volume}" /><span>🔊</span></div>
+      <div class="music-vol"><input id="music-volume" type="range" min="0" max="100" value="${m.volume}" /></div>
       <div class="music-lib">${lib}</div>
     `;
+    panelEl.scrollTop = panelScroll;
+    panelEl.querySelectorAll('[data-tracks]').forEach(el => { if (scrollMem[el.dataset.tracks]) el.scrollTop = scrollMem[el.dataset.tracks]; });
     bindPanel();
   }
 
@@ -306,12 +446,40 @@
     };
     panelEl.querySelectorAll('[data-play]').forEach(el => {
       el.onclick = (e) => {
-        if (e.target.closest('[data-del]')) return;
+        if (e.target.closest('[data-del]') || e.target.closest('[data-expand]')) return;
         playItem(el.dataset.play);
       };
     });
     panelEl.querySelectorAll('[data-del]').forEach(el => {
       el.onclick = (e) => { e.stopPropagation(); removeItem(el.dataset.del); };
+    });
+    panelEl.querySelectorAll('[data-expand]').forEach(el => {
+      el.onclick = (e) => {
+        e.stopPropagation();
+        const id = el.dataset.expand;
+        if (expanded.has(id)) expanded.delete(id);
+        else {
+          expanded.add(id);
+          const it = m.library.find(x => x.id === id);
+          if (it) ensureTracks(it);
+        }
+        renderPanel();
+      };
+    });
+    panelEl.querySelectorAll('[data-track]').forEach(el => {
+      el.onclick = () => {
+        const id = el.dataset.track;
+        const idx = Number(el.dataset.idx);
+        const it = m.library.find(x => x.id === id);
+        if (!it) return;
+        if (m.currentLibId === id && player && player.playVideoAt && it.items) {
+          // đang ở đúng playlist: phát bài này (index theo thứ tự hiện tại của player)
+          const ids = (player.getPlaylist && player.getPlaylist()) || [];
+          const pi = ids.indexOf(it.items[idx].vid);
+          if (pi >= 0) { player.playVideoAt(pi); return; }
+        }
+        playItem(id, idx);
+      };
     });
   }
 
@@ -339,6 +507,7 @@
       setTimeout(() => document.addEventListener('click', onDocClick), 0);
       window.addEventListener('resize', positionPanel);
     }
+    music().library.forEach(x => { if (x.type === 'playlist' && x.items && x.items.some(t => !t.title)) fetchTrackTitles(x); });
     renderPanel();
     positionPanel();
   }

@@ -1090,20 +1090,14 @@
   flex: 1; min-width: 0; padding: 8px 10px; border-radius: 10px; font-size: 12.5px;
   background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #fff;
 }
-.music-add button, .music-ctrl button {
-  background: rgba(159,133,247,0.2); border: 1px solid rgba(159,133,247,0.4); color: #e5e7f0;
+.music-add button,   background: rgba(159,133,247,0.2); border: 1px solid rgba(159,133,247,0.4); color: #e5e7f0;
   border-radius: 10px; padding: 0 12px; cursor: pointer; font-size: 12.5px;
 }
-.music-add button:hover, .music-ctrl button:hover { background: rgba(159,133,247,0.35); }
-.music-msg { font-size: 12px; color: #fca5a5; min-height: 0; margin-bottom: 6px; }
+.music-add button:hover, .music-msg { font-size: 12px; color: #fca5a5; min-height: 0; margin-bottom: 6px; }
 .music-msg.ok { color: #86efac; }
 .music-now { padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.05); margin: 8px 0; font-size: 12.5px; line-height: 1.4; }
 .music-now small { display: block; color: #9ca3b8; margin-top: 2px; }
-.music-ctrl { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; }
-.music-ctrl button { height: 34px; min-width: 38px; padding: 0 10px; }
-.music-ctrl button.main { background: #9f85f7; color: #111; font-weight: 700; min-width: 48px; }
-.music-ctrl button.on { background: rgba(159,133,247,0.5); border-color: #9f85f7; }
-.music-vol { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.music-vol { display: flex; align-items: center; margin-bottom: 10px; }
 .music-vol input { flex: 1; accent-color: #9f85f7; }
 .music-lib { display: flex; flex-direction: column; gap: 4px; }
 .music-item {
@@ -1118,3 +1112,42 @@
 .music-item .x:hover { color: #f28b82; }
 .music-empty { color: #9ca3b8; text-align: center; padding: 10px 0; font-size: 12px; }
 #yt-player-host { position: fixed; width: 1px; height: 1px; left: -10px; top: -10px; opacity: 0; pointer-events: none; overflow: hidden; }
+
+/* Timer phóng to khi ẩn UI */
+.pomo-center-wrap { transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1); transform-origin: center center; }
+#view-pomodoro.pomo-zen .pomo-center-wrap { transform: scale(var(--zen-scale, 1.25)); }
+
+/* Thanh điều khiển liền khối */
+.music-bar {
+  display: flex; align-items: stretch; height: 40px; margin-bottom: 10px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px; overflow: hidden;
+}
+.music-bar button {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; border-left: 1px solid rgba(255,255,255,0.08);
+  color: #cfd2e0; cursor: pointer; transition: background 0.15s, color 0.15s; padding: 0;
+}
+.music-bar button:first-child { border-left: none; }
+.music-bar button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.music-bar button:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.music-bar button.on { background: rgba(159,133,247,0.18); color: var(--accent-hover, #b8a5fb); }
+.music-bar button.main { flex: 1.3; background: #9f85f7; color: #17181f; border-left-color: transparent; }
+.music-bar button.main:hover { background: #b095fc; color: #17181f; }
+.music-bar button.main svg { width: 20px; height: 20px; }
+.music-group { display: flex; flex-direction: column; gap: 3px; }
+.music-item .chev { display: flex; padding: 2px; }
+.music-item .chev svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.2s; }
+.music-item .chev.open svg { transform: rotate(180deg); }
+.music-tracks { max-height: 230px; overflow-y: auto; margin: 0 0 4px 10px; padding-left: 8px; border-left: 2px solid rgba(159,133,247,0.3); }
+.music-track { display: flex; gap: 8px; padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: 12.5px; align-items: center; }
+.music-track:hover { background: rgba(255,255,255,0.08); }
+.music-track.active { background: rgba(159,133,247,0.18); color: #fff; }
+.music-track .n { width: 22px; text-align: right; color: #9ca3b8; font-size: 11px; flex-shrink: 0; }
+.music-track .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.music-add button {
+  background: rgba(159,133,247,0.2); border: 1px solid rgba(159,133,247,0.4); color: #e5e7f0;
+  border-radius: 10px; padding: 0 14px; cursor: pointer; font-size: 12.5px;
+}
+.music-add button:hover { background: rgba(159,133,247,0.35); }

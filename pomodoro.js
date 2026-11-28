@@ -517,6 +517,87 @@
     return pomoRuntime.running || (pomoRuntime.remainingSeconds < pomoRuntime.totalSeconds && pomoRuntime.remainingSeconds > 0);
   }
 
+  // ================= LƯU / KHÔI PHỤC PHIÊN (theo thiết bị) =================
+  const POMO_SESSION_KEY = 'studyos_pomo_session';
+  const POMO_SESSION_MAX_AGE = 24 * 3600 * 1000;
+
+  function liveRemainingSeconds() {
+    if (pomoRuntime.running && pomoRuntime.endTimeMs) {
+      return Math.max(0, (pomoRuntime.endTimeMs - Date.now()) / 1000);
+    }
+    return pomoRuntime.remainingSeconds;
+  }
+
+  function savePomoSession() {
+    try {
+      if (!hasTimerProgress()) {
+        localStorage.removeItem(POMO_SESSION_KEY);
+        return;
+      }
+      localStorage.setItem(POMO_SESSION_KEY, JSON.stringify({
+        appMode: pomoRuntime.appMode,
+        mode: pomoRuntime.mode,
+        examSubject: pomoRuntime.examSubject,
+        examCustomMins: pomoRuntime.examCustomMins,
+        examName: pomoRuntime.examName,
+        examAlert15: pomoRuntime.examAlert15,
+        examAlert5: pomoRuntime.examAlert5,
+        examAlert15Fired: pomoRuntime.examAlert15Fired,
+        examAlert5Fired: pomoRuntime.examAlert5Fired,
+        totalSeconds: pomoRuntime.totalSeconds,
+        remainingSeconds: liveRemainingSeconds(),
+        savedAt: Date.now()
+      }));
+    } catch (e) { /* ignore */ }
+  }
+
+  function restorePomoSession() {
+    try {
+      const raw = localStorage.getItem(POMO_SESSION_KEY);
+      if (!raw) return false;
+      const s = JSON.parse(raw);
+      if (!s || Date.now() - (s.savedAt || 0) > POMO_SESSION_MAX_AGE) {
+        localStorage.removeItem(POMO_SESSION_KEY);
+        return false;
+      }
+      if (!(s.totalSeconds > 0) || !(s.remainingSeconds > 0) || s.remainingSeconds > s.totalSeconds + 1) return false;
+      stopPomoInterval();
+      pomoRuntime.appMode = s.appMode === 'exam' ? 'exam' : 'normal';
+      pomoRuntime.mode = s.mode === 'break' ? 'break' : 'focus';
+      pomoRuntime.examSubject = s.examSubject || 'hsg';
+      pomoRuntime.examCustomMins = s.examCustomMins || 60;
+      pomoRuntime.examName = s.examName || '';
+      if (typeof s.examAlert15 === 'boolean') pomoRuntime.examAlert15 = s.examAlert15;
+      if (typeof s.examAlert5 === 'boolean') pomoRuntime.examAlert5 = s.examAlert5;
+      pomoRuntime.examAlert15Fired = !!s.examAlert15Fired;
+      pomoRuntime.examAlert5Fired = !!s.examAlert5Fired;
+      pomoRuntime.totalSeconds = s.totalSeconds;
+      pomoRuntime.remainingSeconds = s.remainingSeconds;
+      pomoRuntime.running = false;
+      if (pomoRuntime.appMode === 'exam') {
+        pomoRuntime.panelOpen = false;
+        document.getElementById('btn-pomo-toggle-tasks')?.classList.remove('active');
+        const nameInp = document.getElementById('pomo-exam-name');
+        if (nameInp) nameInp.value = pomoRuntime.examName;
+        const minsInp = document.getElementById('pomo-exam-custom-mins');
+        if (minsInp) minsInp.value = pomoRuntime.examCustomMins;
+        const a15 = document.getElementById('pomo-exam-alert15');
+        const a5 = document.getElementById('pomo-exam-alert5');
+        if (a15) a15.checked = pomoRuntime.examAlert15;
+        if (a5) a5.checked = pomoRuntime.examAlert5;
+      }
+      updatePomoTimerUI();
+      showToast('Đã khôi phục phiên đang dở — bấm Resume để tiếp tục.');
+      return true;
+    } catch (e) { return false; }
+  }
+
+  window.addEventListener('beforeunload', () => { flushUnsavedSeconds(); savePomoSession(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') { flushUnsavedSeconds(); savePomoSession(); }
+  });
+  window.addEventListener('pagehide', () => { flushUnsavedSeconds(); savePomoSession(); });
+
   function updateRailBadges() {
     const { current } = computeStreaks();
     const streakEl = document.getElementById('pomo-rail-streak-num');
@@ -655,6 +736,7 @@
     if (brandLabel) brandLabel.textContent = isExam ? 'Chế độ Thi thật' : 'Pomodoro Timer';
 
     updateRailBadges();
+    savePomoSession();
   }
 
   async function switchAppMode(targetAppMode) {
@@ -1937,7 +2019,8 @@
     bindPomoStageEvents();
     setupZenMode();
     setupImmersiveSidebarSync();
-    resetPomoToMode('focus');
+    if (hasTimerProgress()) updatePomoTimerUI();
+    else if (!restorePomoSession()) resetPomoToMode('focus');
     renderPomoTasksPanel();
     applySavedWallpaper();
   }
@@ -2186,7 +2269,20 @@
     if (zenTimerId) clearInterval(zenTimerId);
     let lastActive = Date.now();
     let wasRunning = false;
+    const updateScale = () => {
+      const ring = view.querySelector('.pomo-ring-box');
+      const wrap = view.querySelector('.pomo-center-wrap');
+      if (!ring || !wrap) return;
+      const baseH = wrap.offsetHeight || 440;
+      const byH = (view.clientHeight - 110) / baseH;
+      const byW = (view.clientWidth - 40) / (ring.offsetWidth || 360);
+      const sc = Math.max(1, Math.min(1.3, byH, byW));
+      view.style.setProperty('--zen-scale', sc.toFixed(3));
+    };
+    updateScale();
+    window.addEventListener('resize', updateScale);
     const setZen = (on) => {
+      if (on) updateScale();
       view.classList.toggle('pomo-zen', on);
       if (on) closeAllPopovers();
       if (on && window.StudyMusic) window.StudyMusic.closePanel();
